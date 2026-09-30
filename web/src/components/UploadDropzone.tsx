@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { formatBytes } from '../lib/format';
 import { ACCEPTED_TYPES, MAX_UPLOAD_BYTES } from '../lib/types';
+import { Icon } from './Icon';
 
 interface Props {
   onUploaded: () => void;
@@ -20,7 +21,6 @@ export function UploadDropzone({ onUploaded }: Props) {
   const [errors, setErrors] = useState<string[]>([]);
 
   async function upload(files: File[]) {
-    setErrors([]);
     const problems = files.map(validate).filter((e): e is string => e !== null);
     const valid = files.filter((f) => validate(f) === null);
     setErrors(problems);
@@ -44,11 +44,17 @@ export function UploadDropzone({ onUploaded }: Props) {
   return (
     <section className="upload">
       <div
-        className={`dropzone${dragging ? ' dropzone-active' : ''}`}
+        className={`dropzone${dragging ? ' dropzone-active' : ''}${busy > 0 ? ' dropzone-busy' : ''}`}
         role="button"
         tabIndex={0}
+        aria-label="Upload documents"
         onClick={() => input.current?.click()}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), input.current?.click())}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            input.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -60,8 +66,12 @@ export function UploadDropzone({ onUploaded }: Props) {
           void upload(Array.from(e.dataTransfer.files));
         }}
       >
-        <p className="dropzone-title">{busy > 0 ? `Uploading ${busy} file${busy === 1 ? '' : 's'}…` : 'Drop documents here'}</p>
-        <p className="dropzone-hint">or click to choose · PDF, PNG or JPEG · up to 10 MB</p>
+        <span className="dropzone-icon">{busy > 0 ? <span className="spinner" /> : <Icon name="upload" size={22} />}</span>
+        <p className="dropzone-title">
+          {busy > 0 ? `Uploading ${busy} file${busy === 1 ? '' : 's'}…` : dragging ? 'Drop to upload' : 'Drop documents here'}
+        </p>
+        <p className="dropzone-hint">PDF, PNG or JPEG · up to 10 MB each</p>
+        <span className="button">Choose files</span>
         <input
           ref={input}
           type="file"
@@ -77,7 +87,10 @@ export function UploadDropzone({ onUploaded }: Props) {
       {errors.length > 0 && (
         <ul className="upload-errors" role="alert">
           {errors.map((msg) => (
-            <li key={msg}>{msg}</li>
+            <li key={msg}>
+              <Icon name="alert" size={15} />
+              {msg}
+            </li>
           ))}
         </ul>
       )}

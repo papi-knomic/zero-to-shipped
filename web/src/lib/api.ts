@@ -8,6 +8,12 @@ let fallbackId: string | undefined;
 
 /** Demo mode has no login: each browser gets its own workspace, kept in localStorage. */
 export function getWorkspaceId(): string {
+  // Dev only (stripped from production builds): ?workspace=<uuid> pins a workspace,
+  // so headless screenshots can open a seeded one.
+  if (import.meta.env.DEV) {
+    const pinned = new URLSearchParams(window.location.search).get('workspace');
+    if (pinned && /^[0-9a-f-]{36}$/.test(pinned)) return pinned;
+  }
   try {
     const existing = localStorage.getItem(WORKSPACE_KEY);
     if (existing) return existing;

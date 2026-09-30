@@ -105,3 +105,37 @@ appear in CloudWatch.
   `count = length(...)` is known at plan time even when the ARNs aren't.
 - The health Lambda's invoke permission was replaced (the source ARN narrowed to `GET`), which
   meant a few seconds of possible errors during the apply.
+
+## 2026-09-30 — UI and colour redesign
+
+**Asked:** "Make the UI and colors better."
+
+**Built:**
+- New palette with fixed roles: indigo means "your action" (brand, buttons, Needs review);
+  red, amber and green mean time left only, in bands that match the reminder schedule
+  (≤7 / ≤30 / ≤60 / >60 days, plus expired). The old orange brand colour clashed with warnings.
+  Tokens live in `:root`, with a dark variant under `prefers-color-scheme`. Components read a
+  `--tone` / `--tone-soft` pair set by `.tone-*` classes.
+- Plus Jakarta Sans (Google Fonts), a gradient logo mark (a clock ring with a gap) that is
+  also the favicon, and a soft indigo glow behind the page.
+- Home: two-column hero with the upload card, a stats strip (tracked / needs review / due in 30
+  days / expired), and document cards sorted by soonest expiry, with an urgency-tinted icon,
+  countdown and status pill.
+- Detail: a validity timeline (issue → expiry, with today and the 60/30/7-day reminder ticks),
+  a details card, and date cards with a confidence meter and evidence quote. Computed expiry is
+  marked differently from quoted dates.
+- Loading skeletons, spinners, pulsing in-flight states, and reduced-motion support.
+- Dev-only `?workspace=<uuid>` override so headless screenshots can open a seeded workspace
+  (guarded by `import.meta.env.DEV`; confirmed absent from the production bundle).
+
+**How it was checked:** headless Chrome screenshots against a separate Vite server on :5174 with
+a seeded workspace, in light and dark themes and at desktop and 390px width.
+
+**Problems and fixes:**
+- Headless Chrome follows the OS theme; `--blink-settings=preferredColorScheme=1|0` forces it.
+- Chrome on Windows won't shrink a window below about 500px, so "mobile" screenshots were
+  cropped. Rendering the app inside 390px iframes gave a true phone-width check.
+- Plus Jakarta Sans has tight word spaces; added a small `word-spacing` globally and more on
+  the display heading.
+- Python on Windows read UTF-8 files as cp1252 during scripted edits. Use `encoding='utf-8'`
+  or `PYTHONUTF8=1`.

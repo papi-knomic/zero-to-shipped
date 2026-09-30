@@ -28,6 +28,33 @@ export function describeDaysUntil(days: number): string {
   return `${days} day${days === 1 ? '' : 's'} left`;
 }
 
+/** Urgency bands match the reminder schedule: 60, 30 and 7 days before expiry. */
+export type Urgency = 'expired' | 'critical' | 'soon' | 'upcoming' | 'ok' | 'none';
+
+export function urgency(days: number | undefined): Urgency {
+  if (days === undefined) return 'none';
+  if (days < 0) return 'expired';
+  if (days <= 7) return 'critical';
+  if (days <= 30) return 'soon';
+  if (days <= 60) return 'upcoming';
+  return 'ok';
+}
+
+export function docUrgency(doc: DocumentRecord): Urgency {
+  const expiry = expiryDate(doc);
+  return urgency(expiry ? daysUntil(expiry) : undefined);
+}
+
+/** In-flight first, then soonest expiry, then documents without an expiry date. */
+export function byUrgency(a: DocumentRecord, b: DocumentRecord): number {
+  const rank = (d: DocumentRecord) => {
+    if (isInFlight(d.status)) return -Infinity;
+    const e = expiryDate(d);
+    return e ? daysUntil(e) : Infinity;
+  };
+  return rank(a) - rank(b) || b.createdAt.localeCompare(a.createdAt);
+}
+
 export const STATUS_LABEL: Record<DocumentStatus, string> = {
   UPLOADING: 'Uploading',
   PROCESSING: 'Reading document',

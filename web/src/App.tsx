@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DocumentDetail } from './components/DocumentDetail';
 import { DocumentList } from './components/DocumentList';
+import { Icon, LogoMark } from './components/Icon';
+import { StatsBar } from './components/StatsBar';
 import { UploadDropzone } from './components/UploadDropzone';
 import { api } from './lib/api';
 import { isInFlight } from './lib/format';
@@ -9,6 +11,7 @@ import type { DocumentRecord } from './lib/types';
 
 type ApiStatus = 'checking' | 'healthy' | 'unreachable';
 const POLL_MS = 2000;
+const API_STATUS_LABEL: Record<ApiStatus, string> = { checking: 'Connecting', healthy: 'Online', unreachable: 'Offline' };
 
 function useApiHealth(): ApiStatus {
   const [status, setStatus] = useState<ApiStatus>('checking');
@@ -53,15 +56,57 @@ function DocumentsPage() {
 
   return (
     <>
-      <h1>Never miss a renewal.</h1>
-      <p className="lede">
-        Upload a licence, contract, insurance policy, permit or certification. Lapse reads the dates
-        for you, you confirm them, and it emails reminders 60, 30 and 7 days before anything
-        expires.
-      </p>
-      <UploadDropzone onUploaded={refresh} />
-      {error && <p className="error">{error}</p>}
-      {documents === null && !error ? <p className="muted">Loading documents…</p> : documents && <DocumentList documents={documents} />}
+      <section className="hero">
+        <div className="hero-copy">
+          <h1>
+            Never miss a <span className="accent">renewal.</span>
+          </h1>
+          <p className="lede">
+            Upload a licence, contract, insurance policy, permit or certification. Lapse reads the dates
+            for you, you confirm them, and it emails reminders 60, 30 and 7 days before anything
+            expires.
+          </p>
+          <ul className="hero-points">
+            <li>
+              <Icon name="check" size={16} />
+              Finds issue, effective and expiry dates, with the quote it found them in
+            </li>
+            <li>
+              <Icon name="check" size={16} />
+              Nothing is scheduled until you confirm
+            </li>
+            <li>
+              <Icon name="bell" size={16} />
+              Email reminders at 60, 30 and 7 days
+            </li>
+          </ul>
+        </div>
+        <UploadDropzone onUploaded={refresh} />
+      </section>
+
+      {error && (
+        <p className="notice notice-error">
+          <Icon name="alert" size={16} />
+          {error}
+        </p>
+      )}
+
+      {documents && documents.length > 0 && <StatsBar documents={documents} />}
+
+      <section className="documents">
+        <div className="section-head">
+          <h2>Your documents</h2>
+          {documents && documents.length > 0 && <span className="muted small">Soonest expiry first</span>}
+        </div>
+        {documents === null && !error ? (
+          <div className="card skeleton-card" aria-label="Loading documents">
+            <span className="skeleton" style={{ width: '55%' }} />
+            <span className="skeleton" style={{ width: '35%' }} />
+          </div>
+        ) : (
+          documents && <DocumentList documents={documents} />
+        )}
+      </section>
     </>
   );
 }
@@ -72,19 +117,20 @@ export function App() {
 
   return (
     <div className="shell">
-      <header className="topbar">
+      <header className="nav">
         <a className="brand" href="/" onClick={linkHandler('/')}>
-          <span className="logo" aria-hidden="true" />
-          <span>Lapse</span>
+          <LogoMark />
+          <span className="wordmark">Lapse</span>
         </a>
-        <span className={`badge badge-${apiStatus}`} role="status">
-          API: {apiStatus}
+        <span className={`conn conn-${apiStatus}`} role="status" title={`API ${API_STATUS_LABEL[apiStatus].toLowerCase()}`}>
+          <span className="conn-dot" aria-hidden="true" />
+          {API_STATUS_LABEL[apiStatus]}
         </span>
       </header>
 
-      <main className="content">
-        {route.name === 'document' ? <DocumentDetail id={route.id} /> : <DocumentsPage />}
-      </main>
+      <main className="content">{route.name === 'document' ? <DocumentDetail id={route.id} /> : <DocumentsPage />}</main>
+
+      <footer className="footer">Lapse · built for AWS Zero to Shipped</footer>
     </div>
   );
 }
