@@ -7,3 +7,15 @@ variable "enable_cloudfront" {
   type        = bool
   default     = false
 }
+
+variable "dev_origins" {
+  description = "Extra origins allowed to PUT to presigned upload URLs (local Vite dev). Empty before submission."
+  type        = list(string)
+  default     = ["http://localhost:5173"]
+}
+
+variable "extractor" {
+  description = "Extraction backend for the extract Lambda: mock | bedrock | textract."
+  type        = string
+  default     = "mock"
+}

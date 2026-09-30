@@ -3,6 +3,6 @@ output "api_endpoint" {
   value       = aws_apigatewayv2_api.this.api_endpoint
 }
 
-output "health_function_name" {
-  value = aws_lambda_function.health.function_name
+output "function_names" {
+  value = { for k, m in module.fn : k => m.function_name }
 }

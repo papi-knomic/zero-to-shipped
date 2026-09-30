@@ -15,3 +15,11 @@ output "site_bucket" {
 output "distribution_id" {
   value = module.frontend.distribution_id
 }
+
+output "table_name" {
+  value = module.storage.table_name
+}
+
+output "uploads_bucket" {
+  value = module.storage.uploads_bucket_name
+}

@@ -17,3 +17,19 @@ variable "lambda_dist_root" {
   description = "Directory containing one built folder per Lambda (services/dist)."
   type        = string
 }
+
+variable "table_name" {
+  type = string
+}
+
+variable "table_arn" {
+  type = string
+}
+
+variable "uploads_bucket_name" {
+  type = string
+}
+
+variable "uploads_bucket_arn" {
+  type = string
+}

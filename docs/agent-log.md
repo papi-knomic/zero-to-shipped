@@ -56,3 +56,52 @@ apply, run `scripts/deploy.ps1`, and verify the site URL and the health badge.
   dashboard and the write-up screenshots.
 - The upload bucket needs its own S3 CORS rule for the app origin once presigned uploads land.
 - Consider granting CloudFront `s3:ListBucket` so missing assets return 404 instead of 403.
+
+## 2026-09-30 — M1: upload, S3 trigger, mock extraction, document list + detail
+
+**Asked:** Start M1 while CloudFront verification is pending. Commit M0 first and add a README.
+
+**Built:**
+- `infra/modules/lambda`: reusable module that gives each Lambda its own role (basic logging +
+  `AWSXRayDaemonWriteAccess` + an inline least-privilege policy), a 14-day log group and Active tracing.
+- `infra/modules/storage`: DynamoDB single table `lapse` (on-demand, point-in-time recovery,
+  deletion protection) and a private uploads bucket (TLS-only, PUT-only CORS, cleanup of
+  incomplete multipart uploads).
+- `infra/modules/api`: route table with one Lambda per route. `POST /api/uploads` (PutItem +
+  s3:PutObject on `ws/*`), `GET /api/documents` (Query) and `GET /api/documents/{id}` (GetItem).
+  `moved` blocks adopted the M0 health resources, so nothing was recreated.
+- `infra/modules/extraction`: `lapse-extract` is triggered by S3 `ObjectCreated` on `ws/`.
+  Status goes UPLOADING → PROCESSING → NEEDS_REVIEW, or FAILED with a reason.
+- `services/src/extractors`: the `Extractor` interface, a mock with realistic Nigerian fixtures
+  picked by filename keyword, and `normalizeExtraction`, which computes expiry from issue/effective
+  date + validity period in code. Covered by `node --test` (10 tests).
+- Powertools Logger, Tracer (SDK clients captured) and Metrics (`DocumentsProcessed`,
+  `ExtractionLatency`, `ExtractionFailures`, `ColdStart`).
+- Web: workspace UUID in localStorage sent as `x-workspace-id`, drag-and-drop upload (presigned
+  PUT straight to S3), document list with expiry countdowns, and a detail view with date cards,
+  evidence quotes and confidence. Polls while anything is in flight. No router dependency.
+
+**Verified end to end** (scripted against the live API): upload → PUT → NEEDS_REVIEW in about 4 s.
+Workspace isolation holds (another workspace gets 404 / an empty list). Each rejection case
+returns the right status: 400 for a missing header, bad JSON or a bad ID; 415 for the wrong
+type; 413 for over 10 MB; 404 for an unknown document. The S3 preflight allows
+`localhost:5173` and returns 403 for other origins. X-Ray traces and the custom metrics
+appear in CloudWatch.
+
+**Problems and fixes:**
+- *The user tested the UI before apply* and got a 404 on `POST /api/uploads`: the route
+  didn't exist yet. The apply fixed it.
+- *Presigned PUT and checksums:* recent SDK v3 versions sign a CRC32 checksum into presigned
+  URLs by default, which a browser PUT can't match. `requestChecksumCalculation: 'WHEN_REQUIRED'`
+  on the S3 client prevents that.
+- *Presigned PUTs can't enforce size:* the API validates the declared size, and the extract
+  Lambda checks the real object size from the S3 event and marks the document FAILED if it's too big.
+- *S3 async retries:* extraction errors mark the document FAILED instead of throwing, so a
+  broken file isn't retried twice.
+- *Running tests without a build step:* Node 24 strips TypeScript types natively. With
+  `allowImportingTsExtensions` and `erasableSyntaxOnly`, `node --test` runs the `.ts` files
+  directly and esbuild bundles the same sources.
+- *Terraform `count` on unknown values:* policy statements are passed as a list, so
+  `count = length(...)` is known at plan time even when the ARNs aren't.
+- The health Lambda's invoke permission was replaced (the source ARN narrowed to `GET`), which
+  meant a few seconds of possible errors during the apply.
