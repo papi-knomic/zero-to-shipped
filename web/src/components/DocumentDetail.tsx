@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ApiError, api } from '../lib/api';
 import { docUrgency, formatBytes, formatDate, isInFlight } from '../lib/format';
-import { linkHandler } from '../lib/router';
+import { APP_HOME, linkHandler } from '../lib/router';
 import type { DocumentRecord } from '../lib/types';
 import { Icon } from './Icon';
 import { StatusBadge } from './StatusBadge';
@@ -48,7 +48,7 @@ export function DocumentDetail({ id }: { id: string }) {
   }, [id]);
 
   const back = (
-    <a className="back" href="/" onClick={linkHandler('/')}>
+    <a className="back" href={APP_HOME} onClick={linkHandler(APP_HOME)}>
       <Icon name="back" size={16} />
       All documents
     </a>

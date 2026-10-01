@@ -1,6 +1,6 @@
 // Bundles every src/handlers/<name>.ts into dist/<name>/index.mjs (one zip per Lambda).
 import { build } from 'esbuild';
-import { readdir, rm } from 'node:fs/promises';
+import { access, cp, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 const handlersDir = 'src/handlers';
@@ -31,3 +31,15 @@ await Promise.all(
 );
 
 console.log(`Built ${entries.length} handler(s): ${entries.join(', ')}`);
+
+// The web handler serves the frontend build, so ship ../web/dist inside its zip.
+if (entries.includes('web.ts')) {
+  const webDist = '../web/dist';
+  try {
+    await access(path.join(webDist, 'index.html'));
+  } catch {
+    throw new Error('web/dist not found: run `npm run build` in web/ before building services.');
+  }
+  await cp(webDist, 'dist/web/static', { recursive: true });
+  console.log('Copied web/dist into dist/web/static');
+}

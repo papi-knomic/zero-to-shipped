@@ -33,3 +33,8 @@ variable "uploads_bucket_name" {
 variable "uploads_bucket_arn" {
   type = string
 }
+
+variable "serve_web" {
+  description = "Serve the web build from this API (fallback while CloudFront is unavailable)."
+  type        = bool
+}

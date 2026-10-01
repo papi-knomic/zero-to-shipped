@@ -6,6 +6,15 @@ locals {
 
   # The deployed app's origin. Empty until CloudFront exists.
   app_origins = var.enable_cloudfront ? ["https://${module.frontend.distribution_domain}"] : []
+
+  # Fallback while CloudFront is unavailable: the HTTP API also serves the site.
+  serve_web = !var.enable_cloudfront
+  # Origins the API-served site is reachable on. Same-origin for /api, but presigned
+  # uploads go to S3, which needs them in its CORS rule.
+  web_origins = local.serve_web ? concat(
+    [module.api.api_endpoint],
+    var.custom_domain != "" ? ["https://${var.custom_domain}"] : [],
+  ) : []
 }
 
 module "frontend" {
@@ -23,7 +32,7 @@ module "storage" {
   uploads_bucket_name = "${local.name}-uploads-${local.account_id}"
   # Browsers PUT to S3 directly, so local dev needs its own origin here (the Vite proxy
   # only covers /api). Empty dev_origins before submission.
-  cors_origins = concat(local.app_origins, var.dev_origins)
+  cors_origins = concat(local.app_origins, local.web_origins, var.dev_origins)
 }
 
 module "api" {
@@ -36,6 +45,7 @@ module "api" {
   table_arn           = module.storage.table_arn
   uploads_bucket_name = module.storage.uploads_bucket_name
   uploads_bucket_arn  = module.storage.uploads_bucket_arn
+  serve_web           = local.serve_web
 }
 
 module "extraction" {
@@ -49,4 +59,14 @@ module "extraction" {
   table_arn          = module.storage.table_arn
   uploads_bucket_id  = module.storage.uploads_bucket_id
   uploads_bucket_arn = module.storage.uploads_bucket_arn
+}
+
+module "domain" {
+  source = "./modules/domain"
+  count  = var.custom_domain != "" ? 1 : 0
+
+  domain_name = var.custom_domain
+  attach      = var.custom_domain_attach
+  api_id      = module.api.api_id
+  stage_id    = module.api.stage_id
 }

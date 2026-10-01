@@ -6,7 +6,7 @@ import { StatsBar } from './components/StatsBar';
 import { UploadDropzone } from './components/UploadDropzone';
 import { api } from './lib/api';
 import { isInFlight } from './lib/format';
-import { linkHandler, useRoute } from './lib/router';
+import { useRoute } from './lib/router';
 import type { DocumentRecord } from './lib/types';
 
 type ApiStatus = 'checking' | 'healthy' | 'unreachable';
@@ -58,13 +58,13 @@ function DocumentsPage() {
     <>
       <section className="hero">
         <div className="hero-copy">
+          <p className="eyebrow">Demo workspace</p>
           <h1>
-            Never miss a <span className="accent">renewal.</span>
+            Your renewals, <span className="accent">handled.</span>
           </h1>
           <p className="lede">
-            Upload a licence, contract, insurance policy, permit or certification. Lapse reads the dates
-            for you, you confirm them, and it emails reminders 60, 30 and 7 days before anything
-            expires.
+            Drop in a licence, contract, insurance policy, permit or certification. Lapse reads the
+            dates for you. This workspace is private to your browser.
           </p>
           <ul className="hero-points">
             <li>
@@ -118,7 +118,7 @@ export function App() {
   return (
     <div className="shell">
       <header className="nav">
-        <a className="brand" href="/" onClick={linkHandler('/')}>
+        <a className="brand" href="/" title="About Lapse">
           <LogoMark />
           <span className="wordmark">Lapse</span>
         </a>

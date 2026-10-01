@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 
-// Two routes don't justify a router dependency. CloudFront's SPA rewrite serves index.html
-// for deep links such as /documents/<id>.
+// Three routes don't justify a router dependency. The landing page (/) is static HTML;
+// the host rewrites /app and /documents/<id> to app.html, where this takes over.
 
 export type Route = { name: 'list' } | { name: 'document'; id: string };
+
+export const APP_HOME = '/app';
 
 function parse(pathname: string): Route {
   const match = /^\/documents\/([^/]+)\/?$/.exec(pathname);

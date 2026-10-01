@@ -3,38 +3,166 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Lapse reads the dates on your licences, contracts, insurance policies and permits, then emails reminders 60, 30 and 7 days before anything expires." />
+    <title>Lapse — never miss a renewal</title>
+    <meta name="description" content="Lapse reads the dates on your licences, contracts, insurance policies and permits, then emails reminders 60, 30 and 7 days before anything expires. Serverless on AWS." />
     <meta name="theme-color" content="#4f46e5" />
+    <meta property="og:title" content="Lapse — never miss a renewal" />
+    <meta property="og:description" content="Upload a document. Lapse finds the expiry date and reminds you 60, 30 and 7 days before it lapses." />
+    <meta property="og:type" content="website" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%236366f1'/><stop offset='1' stop-color='%238b5cf6'/></linearGradient></defs><rect width='32' height='32' rx='9' fill='url(%23g)'/><path d='M16 8.5a7.5 7.5 0 1 0 7.5 7.5' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/><path d='M16 12.2v4l2.6 1.7' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round'/></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <title>Lapse — never miss a renewal</title>
+    <link rel="stylesheet" href="/src/landing.css" />
   </head>
   <body>
-    <!--
-      Static markup mirrors App.tsx so crawlers and no-JS visitors see real content.
-      React replaces it on mount. Keep the headline and description in sync with App.tsx.
-    -->
-    <div id="root">
-      <div class="shell">
-        <header class="nav">
-          <span class="brand"><span class="wordmark">Lapse</span></span>
-        </header>
-        <main class="content">
-          <section class="hero">
-            <div class="hero-copy">
-              <h1>Never miss a <span class="accent">renewal.</span></h1>
-              <p class="lede">
-                Upload a licence, contract, insurance policy, permit or certification. Lapse reads the
-                dates for you, you confirm them, and it emails reminders 60, 30 and 7 days before
-                anything expires.
-              </p>
+    <!-- Static landing page: no JavaScript, so crawlers and every visitor get the full content.
+         The demo app lives at /app (app.html). -->
+    <div class="shell">
+      <header class="nav">
+        <a class="brand" href="/">
+          <svg class="logo-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+            <defs><linearGradient id="lm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1" /><stop offset="1" stop-color="#8b5cf6" /></linearGradient></defs>
+            <rect width="32" height="32" rx="9" fill="url(#lm)" />
+            <path d="M16 8.5a7.5 7.5 0 1 0 7.5 7.5" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" />
+            <path d="M16 12.2v4l2.6 1.7" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" />
+          </svg>
+          <span class="wordmark">Lapse</span>
+        </a>
+        <nav class="nav-links" aria-label="Page sections">
+          <a href="#how-it-works">How it works</a>
+          <a href="#architecture">Architecture</a>
+          <a class="button button-sm" href="/app">Try the demo</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="l-hero">
+          <div>
+            <p class="eyebrow">Renewal tracking for small businesses</p>
+            <h1>Never miss a <span class="accent">renewal.</span></h1>
+            <p class="lede">
+              Upload a licence, contract, insurance policy, permit or certification. Lapse reads the
+              dates for you, you confirm them, and it emails reminders 60, 30 and 7 days before
+              anything expires.
+            </p>
+            <div class="cta-row">
+              <a class="button button-lg" href="/app">Try the demo, no sign-up</a>
+              <a class="button-ghost" href="#how-it-works">See how it works</a>
             </div>
-          </section>
-        </main>
-      </div>
+            <p class="muted small">The demo gives you a private workspace in your browser. Nothing to install.</p>
+          </div>
+
+          <figure class="preview" aria-label="Example: three tracked documents sorted by expiry">
+            <div class="preview-head">
+              <span>Your documents</span>
+              <span class="muted small">Soonest expiry first</span>
+            </div>
+            <ul class="preview-list">
+              <li class="tone-critical">
+                <span class="doc-icon"></span>
+                <span class="preview-main"><b>Fire Safety Certificate</b><small>Lagos State Fire and Rescue Service</small></span>
+                <span class="preview-days">5 days left</span>
+              </li>
+              <li class="tone-soon">
+                <span class="doc-icon"></span>
+                <span class="preview-main"><b>Business Premises Permit</b><small>Lagos State Ministry of Commerce</small></span>
+                <span class="preview-days">25 days left</span>
+              </li>
+              <li class="tone-ok">
+                <span class="doc-icon"></span>
+                <span class="preview-main"><b>Tax Clearance Certificate</b><small>Federal Inland Revenue Service</small></span>
+                <span class="preview-days">92 days left</span>
+              </li>
+            </ul>
+            <figcaption class="muted small">Reminders go out at 60, 30 and 7 days.</figcaption>
+          </figure>
+        </section>
+
+        <section class="l-section" aria-labelledby="problem">
+          <p class="eyebrow">The problem</p>
+          <h2 id="problem">Expired paperwork is expensive.</h2>
+          <p class="l-intro">
+            A typical small business holds a dozen documents that quietly expire: tax clearance and
+            company filings, fire safety certificates, insurance policies, premises permits and
+            leases. The dates are buried in PDFs and phone scans, nobody owns the calendar, and one
+            missed renewal can mean a fine, a sealed shop or an uninsured loss.
+          </p>
+          <div class="l-cards">
+            <article class="card">
+              <h3>Dates hide in documents</h3>
+              <p>Some documents print an expiry date. Others only say “valid for twelve months from the date of issue”, and someone has to do the maths.</p>
+            </article>
+            <article class="card">
+              <h3>Nobody owns the calendar</h3>
+              <p>Renewals come round once a year, often long after whoever filed the paperwork has moved on to other work.</p>
+            </article>
+            <article class="card">
+              <h3>Lapses cost real money</h3>
+              <p>Penalties, lost contracts that require valid certificates, and claims refused because the cover had already lapsed.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="l-section" id="how-it-works" aria-labelledby="how">
+          <p class="eyebrow">How it works</p>
+          <h2 id="how">Four steps, then you can forget about it.</h2>
+          <ol class="steps">
+            <li class="card">
+              <span class="step-num">1</span>
+              <h3>Upload</h3>
+              <p>Drop in a PDF or a photo. It goes straight to private storage through a short-lived upload link.</p>
+            </li>
+            <li class="card">
+              <span class="step-num">2</span>
+              <h3>Lapse reads it</h3>
+              <p>AI extraction finds the document type, issuer, parties and every date, along with the exact quote each date came from. “Valid for 12 months” becomes an expiry date, calculated in code rather than guessed.</p>
+            </li>
+            <li class="card">
+              <span class="step-num">3</span>
+              <h3>You confirm</h3>
+              <p>Nothing is scheduled until you’ve checked the details against the document and fixed anything that’s off.</p>
+            </li>
+            <li class="card">
+              <span class="step-num">4</span>
+              <h3>Reminders go out</h3>
+              <p>Email reminders 60, 30 and 7 days before expiry, plus an in-app feed so nothing is missed if an email is.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section class="l-section" id="architecture" aria-labelledby="arch">
+          <p class="eyebrow">Architecture</p>
+          <h2 id="arch">Serverless on AWS. Nothing runs while it’s idle.</h2>
+          <p class="l-intro">
+            Every component is pay-per-use, defined in Terraform and deployed to
+            <code>us-east-1</code>. Each Lambda function has its own least-privilege IAM role.
+          </p>
+          <pre class="flow" aria-label="Request flow">Browser ─► API Gateway (HTTP API) ─► Lambda ─► DynamoDB
+Browser ─► S3 (presigned upload) ─► ObjectCreated ─► Lambda ─► Bedrock ─► DynamoDB
+EventBridge Scheduler ─► Lambda ─► SES email + in-app feed</pre>
+          <dl class="services">
+            <div><dt>Amazon API Gateway + AWS Lambda</dt><dd>HTTP API with one Node.js 22 function per route on Graviton (arm64).</dd></div>
+            <div><dt>Amazon S3</dt><dd>Private document storage. Browsers upload directly with presigned URLs, and each upload triggers extraction.</dd></div>
+            <div><dt>Amazon Bedrock</dt><dd>Claude reads each document and returns structured fields with evidence quotes. It escalates to a larger model when confidence is low, with Amazon Textract as the fallback.</dd></div>
+            <div><dt>Amazon DynamoDB</dt><dd>Single-table design with on-demand capacity and point-in-time recovery.</dd></div>
+            <div><dt>Amazon EventBridge Scheduler</dt><dd>One-time schedules for each reminder, deleted automatically after they fire.</dd></div>
+            <div><dt>Amazon SES</dt><dd>Reminder emails, also recorded to an in-app notification feed.</dd></div>
+            <div><dt>Amazon CloudWatch + AWS X-Ray</dt><dd>Structured logs, traces and custom metrics through Powertools for AWS Lambda, with a dashboard and alarms.</dd></div>
+            <div><dt>Terraform</dt><dd>All infrastructure as code. State is kept in S3 with native locking.</dd></div>
+          </dl>
+        </section>
+
+        <section class="l-cta card">
+          <div>
+            <h2>See it with your own documents.</h2>
+            <p class="muted">Upload a permit, certificate or policy and watch Lapse find its dates.</p>
+          </div>
+          <a class="button button-lg" href="/app">Try the demo</a>
+        </section>
+      </main>
+
+      <footer class="footer">Lapse · built for the AWS Zero to Shipped hackathon</footer>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

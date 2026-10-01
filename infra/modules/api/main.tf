@@ -161,3 +161,46 @@ moved {
   from = aws_lambda_permission.health_apigw
   to   = aws_lambda_permission.invoke["health"]
 }
+
+# ---------------------------------------------------------------------------
+# Web hosting fallback (while CloudFront is unavailable): the same API serves the
+# static landing page and the React app, so the site and /api share one origin.
+# Explicit /api routes above always win over these catch-alls.
+# ---------------------------------------------------------------------------
+
+module "web" {
+  source = "../lambda"
+  count  = var.serve_web ? 1 : 0
+
+  function_name = "${var.name}-web"
+  handler       = "web"
+  dist_root     = var.lambda_dist_root
+  memory_size   = 256
+}
+
+resource "aws_apigatewayv2_integration" "web" {
+  count = var.serve_web ? 1 : 0
+
+  api_id                 = aws_apigatewayv2_api.this.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.web[0].invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "web" {
+  for_each = var.serve_web ? toset(["ANY /", "ANY /{proxy+}"]) : toset([])
+
+  api_id    = aws_apigatewayv2_api.this.id
+  route_key = each.value
+  target    = "integrations/${aws_apigatewayv2_integration.web[0].id}"
+}
+
+resource "aws_lambda_permission" "web" {
+  count = var.serve_web ? 1 : 0
+
+  statement_id  = "AllowHttpApiInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.web[0].function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.this.execution_arn}/*/*"
+}

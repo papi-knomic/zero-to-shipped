@@ -139,3 +139,56 @@ a seeded workspace, in light and dark themes and at desktop and 390px width.
   the display heading.
 - Python on Windows read UTF-8 files as cp1252 during scripted edits. Use `encoding='utf-8'`
   or `PYTHONUTF8=1`.
+
+## 2026-10-01 — Fallback hosting, landing page, custom domain
+
+**Asked:** Re-check CloudFront (still blocked). Serve the site without CloudFront so there's a
+live URL for SES production access and judging, on `lapse.reck-tech.com` (Cloudflare DNS).
+What are the fallbacks if Bedrock and SES stay blocked?
+
+**Built:**
+- `lapse-web` Lambda on the existing HTTP API (`ANY /`, `ANY /{proxy+}`; explicit `/api/*`
+  routes still win), behind `serve_web = !enable_cloudfront`. It serves the web build from its own
+  zip, loaded into memory once per container:
+  - `/` → static landing page; other extension-less paths → `app.html`
+  - a missing file → 404, never HTML; an unmatched `/api/*` → JSON 404; other methods → 405
+  - immutable caching for hashed assets; CSP, HSTS, nosniff and frame-deny headers
+- Frontend split into two Vite pages. `index.html` is a **zero-JS** landing page (headline,
+  problem, how it works, AWS architecture, "Try the demo") for the judging crawler and the SES
+  reviewer. `app.html` is the React demo at `/app`. The CloudFront rewrite function and a Vite
+  dev middleware follow the same routing rules.
+- `infra/modules/domain`: ACM certificate (us-east-1, so CloudFront can reuse it), then
+  (`custom_domain_attach`) certificate validation + a REGIONAL API Gateway custom domain + API
+  mapping. DNS stays in Cloudflare: one CNAME for validation and one for `lapse`.
+- Uploads bucket CORS now also allows the `execute-api` origin and `https://lapse.reck-tech.com`.
+- `deploy.ps1` builds web before services (the web build is packaged into `lapse-web`) and only
+  syncs to S3 / invalidates when a CloudFront distribution exists.
+- Metrics are flushed only when something was recorded, so functions with no custom metrics stop
+  logging "No application metrics to publish" on every request.
+
+**Verified:** live routes and status codes, zero `<script>` tags on the landing page, security
+headers, asset caching, and the custom domain returning 200 with valid TLS via a pinned IP
+before the DNS cutover.
+
+**Service checks (new-account restrictions):**
+- CloudFront: still "account must be verified". Re-checked with a deliberately invalid
+  CreateDistribution, which can't create anything.
+- Bedrock: `Converse` → `ValidationException: Operation not allowed`, so blocked.
+- Textract: reachable. Use AnalyzeDocument Queries as the M3 extractor.
+- SES: sandbox (200/day), so production access needs requesting.
+- Fallbacks agreed:
+  - extraction: Bedrock → Textract Queries → manual entry on review
+  - email: SES production → SES sandbox with self-verified recipients → in-app feed
+
+**Problems and fixes:**
+- *Wrong domain:* the user first said `recktech.com`, which is a different domain whose DNS is
+  at GoDaddy. Public NS lookups showed the mismatch. Switched to `reck-tech.com` (Cloudflare);
+  the certificate was replaced with create-before-destroy.
+- *`-target` pulled in extra changes:* `-target=module.domain` dragged in a CloudFront function
+  update through the dependency chain. Targeting the certificate resource alone kept the apply
+  to exactly what was authorised.
+- *Stale outputs after a targeted apply:* Terraform warned that outputs may be incomplete and
+  printed the old validation record. Read the new record from `aws acm describe-certificate`.
+- *CSS order:* Vite emitted `landing.css` before `styles.css`, so base `.button` padding overrode
+  `.button-sm/-lg`. Fixed by `@import`-ing `styles.css` from `landing.css` (one bundle).
+- *SSO token expiry* interrupts AWS calls about once a day: `aws sso login --profile zts`.

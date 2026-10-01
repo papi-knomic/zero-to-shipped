@@ -6,3 +6,11 @@ output "api_endpoint" {
 output "function_names" {
   value = { for k, m in module.fn : k => m.function_name }
 }
+
+output "api_id" {
+  value = aws_apigatewayv2_api.this.id
+}
+
+output "stage_id" {
+  value = aws_apigatewayv2_stage.default.id
+}

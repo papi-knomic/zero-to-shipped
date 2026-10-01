@@ -19,3 +19,18 @@ variable "extractor" {
   type        = string
   default     = "mock"
 }
+
+variable "custom_domain" {
+  description = "Hostname the app is served on (DNS managed outside AWS). Empty disables."
+  type        = string
+  default     = "lapse.reck-tech.com"
+}
+
+variable "custom_domain_attach" {
+  description = <<-EOT
+    Phase 2 of the custom domain: set true once the ACM validation CNAME exists in DNS.
+    Apply then waits for the certificate and maps the hostname onto the HTTP API.
+  EOT
+  type        = bool
+  default     = true
+}
