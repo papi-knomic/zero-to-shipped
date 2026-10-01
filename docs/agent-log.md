@@ -332,3 +332,40 @@ are on the dashboard (23 extractions, 7 confirmations, reminders) and all 7 alar
   The re-run had 0 failed calls (5 throttles absorbed by retries).
 - *Terraform has no function literals:* an attempted helper in `locals` was invalid HCL. I
   removed it and wrote the dashboard widgets out in full.
+
+## 2026-10-01 — Redesign: "official paperwork, made calm"
+
+**Asked:** "I don't like the styling… the design and colors could be so much better." There was
+no brief, so the direction was the agent's call.
+
+**Built:**
+- New identity drawn from the domain (certificates, permits, policies):
+  - warm paper and ink palette, deep green brand (also "all clear")
+  - **highlighter yellow** for "needs you": Needs-review stamps, the review form, evidence quotes
+  - vermilion, ochre and slate blue for time-to-expiry only
+  - light and dark ("night desk") themes, plus a subtle SVG paper grain
+- Type: Instrument Serif (headlines, countdowns, dates), Instrument Sans (text), IBM Plex Mono
+  (labels, dates, references).
+- Components:
+  - status as rubber stamps
+  - documents as paper slips with a coloured urgency tab
+  - stats as one ledger strip
+  - the validity timeline as a ruler
+  - evidence quotes highlighted as if with a marker (`<mark>`)
+  - new logo: a document with a highlighted line
+- Landing page (still zero JavaScript): a desk scene in the hero. A stack of sheets with the fire
+  certificate on top, its issue date and "twelve (12) calendar months" highlighted, an
+  "EXPIRES · 5 DAYS LEFT" stamp and a "60 · 30 · 7" sticky note. Editorial problem columns, a
+  four-step ledger with the human "You confirm" step highlighted, a ruled request flow, and a
+  dark-green closing band.
+
+**How it was checked:** headless Chrome against real data, in light and dark, at desktop and at
+a true 390px width (iframes). Fixes found that way:
+- light ink on the yellow marker in dark mode → marker text is always dark ink
+- stamp widths made the countdown column zig-zag → fixed stamp width
+- an orphaned heading word → `text-wrap: balance`
+- on mobile the sticky note covered the stamp, and the issuer line ran under the folded corner
+
+**Problems and fixes:**
+- *A long heredoc with typographic apostrophes broke the shell's quoting.* It failed at parse
+  time, so nothing was half-written; the page was written with the editor instead.

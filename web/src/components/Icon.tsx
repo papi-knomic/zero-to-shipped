@@ -34,20 +34,15 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   );
 }
 
-/** The Lapse mark: a clock ring with a gap, the moment something lapses. */
-export function LogoMark({ size = 30 }: { size?: number }) {
+/** The Lapse mark: a document with its key line highlighted. */
+export function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="logo-mark">
-      <defs>
-        <linearGradient id="lapse-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#6366f1" />
-          <stop offset="1" stopColor="#8b5cf6" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="9" fill="url(#lapse-mark)" />
-      <path d="M16 8.5a7.5 7.5 0 1 0 7.5 7.5" stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" />
-      <path d="M16 12.2v4l2.6 1.7" stroke="#fff" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-      <circle cx="23.5" cy="10.5" r="1.6" fill="#fff" opacity="0.85" />
+      <rect width="32" height="32" rx="8" fill="#0b6e4f" />
+      <path d="M11 7.5h7.2l4.8 4.8V23a1.5 1.5 0 0 1-1.5 1.5H11A1.5 1.5 0 0 1 9.5 23V9A1.5 1.5 0 0 1 11 7.5Z" fill="#fffcf6" />
+      <path d="M18.2 7.5v4.8H23Z" fill="#bfe0cf" />
+      <rect x="11.6" y="15.6" width="9" height="3.2" rx="1" fill="#f6d84a" />
+      <rect x="11.6" y="20.4" width="6" height="1.5" rx="0.7" fill="#0b6e4f" opacity="0.45" />
     </svg>
   );
 }

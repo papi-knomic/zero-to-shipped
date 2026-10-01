@@ -197,7 +197,7 @@ export function DocumentDetail({ id }: { id: string }) {
                       </div>
                       <p className={`evidence${d.computed ? ' evidence-computed' : ''}`}>
                         <Icon name={d.computed ? 'clock' : 'quote'} size={14} />
-                        {d.evidence}
+                        <mark>{d.evidence}</mark>
                       </p>
                     </li>
                   ))}

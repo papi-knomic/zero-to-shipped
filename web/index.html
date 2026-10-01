@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lapse — never miss a renewal</title>
     <meta name="description" content="Lapse reads the dates on your licences, contracts, insurance policies and permits, then emails reminders 60, 30 and 7 days before anything expires. Serverless on AWS." />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#0b6e4f" />
     <meta property="og:title" content="Lapse — never miss a renewal" />
     <meta property="og:description" content="Upload a document. Lapse finds the expiry date and reminds you 60, 30 and 7 days before it lapses." />
     <meta property="og:type" content="website" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%236366f1'/><stop offset='1' stop-color='%238b5cf6'/></linearGradient></defs><rect width='32' height='32' rx='9' fill='url(%23g)'/><path d='M16 8.5a7.5 7.5 0 1 0 7.5 7.5' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round'/><path d='M16 12.2v4l2.6 1.7' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round'/></svg>" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230b6e4f'/><path d='M11 7.5h7.2l4.8 4.8V23a1.5 1.5 0 0 1-1.5 1.5H11A1.5 1.5 0 0 1 9.5 23V9A1.5 1.5 0 0 1 11 7.5Z' fill='%23fffcf6'/><path d='M18.2 7.5v4.8H23Z' fill='%23bfe0cf'/><rect x='11.6' y='15.6' width='9' height='3.2' rx='1' fill='%23f6d84a'/><rect x='11.6' y='20.4' width='6' height='1.5' rx='.7' fill='%230b6e4f' opacity='.45'/></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/landing.css" />
   </head>
   <body>
@@ -21,11 +21,12 @@
     <div class="shell">
       <header class="nav">
         <a class="brand" href="/">
-          <svg class="logo-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-            <defs><linearGradient id="lm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1" /><stop offset="1" stop-color="#8b5cf6" /></linearGradient></defs>
-            <rect width="32" height="32" rx="9" fill="url(#lm)" />
-            <path d="M16 8.5a7.5 7.5 0 1 0 7.5 7.5" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" />
-            <path d="M16 12.2v4l2.6 1.7" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" />
+          <svg class="logo-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="#0b6e4f" />
+            <path d="M11 7.5h7.2l4.8 4.8V23a1.5 1.5 0 0 1-1.5 1.5H11A1.5 1.5 0 0 1 9.5 23V9A1.5 1.5 0 0 1 11 7.5Z" fill="#fffcf6" />
+            <path d="M18.2 7.5v4.8H23Z" fill="#bfe0cf" />
+            <rect x="11.6" y="15.6" width="9" height="3.2" rx="1" fill="#f6d84a" />
+            <rect x="11.6" y="20.4" width="6" height="1.5" rx="0.7" fill="#0b6e4f" opacity="0.45" />
           </svg>
           <span class="wordmark">Lapse</span>
         </a>
@@ -38,7 +39,7 @@
 
       <main>
         <section class="l-hero">
-          <div>
+          <div class="l-hero-copy">
             <p class="eyebrow">Renewal tracking for small businesses</p>
             <h1>Never miss a <span class="accent">renewal.</span></h1>
             <p class="lede">
@@ -47,57 +48,59 @@
               anything expires.
             </p>
             <div class="cta-row">
-              <a class="button button-lg" href="/app">Try the demo, no sign-up</a>
+              <a class="button button-lg" href="/app">Try the demo, no sign-up →</a>
               <a class="button-ghost" href="#how-it-works">See how it works</a>
             </div>
-            <p class="muted small">The demo gives you a private workspace in your browser. Nothing to install.</p>
+            <p class="l-note">A private demo workspace in your browser · nothing to install</p>
           </div>
 
-          <figure class="preview" aria-label="Example: three tracked documents sorted by expiry">
-            <div class="preview-head">
-              <span>Your documents</span>
-              <span class="muted small">Soonest expiry first</span>
-            </div>
-            <ul class="preview-list">
-              <li class="tone-critical">
-                <span class="doc-icon"></span>
-                <span class="preview-main"><b>Fire Safety Certificate</b><small>Lagos State Fire and Rescue Service</small></span>
-                <span class="preview-days">5 days left</span>
-              </li>
-              <li class="tone-soon">
-                <span class="doc-icon"></span>
-                <span class="preview-main"><b>Business Premises Permit</b><small>Lagos State Ministry of Commerce</small></span>
-                <span class="preview-days">25 days left</span>
-              </li>
-              <li class="tone-ok">
-                <span class="doc-icon"></span>
-                <span class="preview-main"><b>Tax Clearance Certificate</b><small>Federal Inland Revenue Service</small></span>
-                <span class="preview-days">92 days left</span>
-              </li>
-            </ul>
-            <figcaption class="muted small">Reminders go out at 60, 30 and 7 days.</figcaption>
+          <!-- Illustration: the document Lapse just read, with what it found highlighted. -->
+          <figure class="desk" aria-label="Example: a fire safety certificate with its issue date and validity highlighted, expiring in 5 days">
+            <div class="sheet sheet-3" aria-hidden="true"></div>
+            <div class="sheet sheet-2" aria-hidden="true"></div>
+            <article class="sheet sheet-1">
+              <p class="sheet-issuer">Lagos State Fire and Rescue Service</p>
+              <p class="sheet-title">Fire Safety Certificate</p>
+              <p class="sheet-ref">Certificate No: LSFRS/FSC/IKJ/0472</p>
+              <p class="sheet-text">This is to certify that the premises of <b>Adebayo Foods Limited</b> have been inspected and comply with fire safety requirements.</p>
+              <p class="sheet-text">Date of Issue: <mark>06/10/2025</mark></p>
+              <p class="sheet-text">Valid for <mark>twelve (12) calendar months</mark> from the date of issue.</p>
+              <div class="sheet-foot">
+                <span class="stamp">Expires 06/10/2026 · 5 days left</span>
+              </div>
+            </article>
+            <aside class="sticky" aria-label="Reminder schedule">
+              <span class="sticky-label">Reminders</span>
+              <span class="sticky-days">60 · 30 · 7</span>
+              <span class="sticky-sub">days before expiry</span>
+            </aside>
           </figure>
         </section>
 
         <section class="l-section" aria-labelledby="problem">
-          <p class="eyebrow">The problem</p>
-          <h2 id="problem">Expired paperwork is expensive.</h2>
-          <p class="l-intro">
-            A typical small business holds a dozen documents that quietly expire: tax clearance and
-            company filings, fire safety certificates, insurance policies, premises permits and
-            leases. The dates are buried in PDFs and phone scans, nobody owns the calendar, and one
-            missed renewal can mean a fine, a sealed shop or an uninsured loss.
-          </p>
-          <div class="l-cards">
-            <article class="card">
+          <div class="l-section-head">
+            <p class="eyebrow">The problem</p>
+            <h2 id="problem">Expired paperwork is expensive.</h2>
+            <p class="l-intro">
+              A typical small business holds a dozen documents that quietly expire: tax clearance and
+              company filings, fire safety certificates, insurance policies, premises permits and
+              leases. The dates are buried in PDFs and phone scans, nobody owns the calendar, and one
+              missed renewal can mean a fine, a sealed shop or an uninsured loss.
+            </p>
+          </div>
+          <div class="l-cols">
+            <article>
+              <span class="l-num">01</span>
               <h3>Dates hide in documents</h3>
               <p>Some documents print an expiry date. Others only say “valid for twelve months from the date of issue”, and someone has to do the maths.</p>
             </article>
-            <article class="card">
+            <article>
+              <span class="l-num">02</span>
               <h3>Nobody owns the calendar</h3>
               <p>Renewals come round once a year, often long after whoever filed the paperwork has moved on to other work.</p>
             </article>
-            <article class="card">
+            <article>
+              <span class="l-num">03</span>
               <h3>Lapses cost real money</h3>
               <p>Penalties, lost contracts that require valid certificates, and claims refused because the cover had already lapsed.</p>
             </article>
@@ -105,25 +108,27 @@
         </section>
 
         <section class="l-section" id="how-it-works" aria-labelledby="how">
-          <p class="eyebrow">How it works</p>
-          <h2 id="how">Four steps, then you can forget about it.</h2>
+          <div class="l-section-head">
+            <p class="eyebrow">How it works</p>
+            <h2 id="how">Four steps, then you can forget about it.</h2>
+          </div>
           <ol class="steps">
-            <li class="card">
+            <li>
               <span class="step-num">1</span>
               <h3>Upload</h3>
               <p>Drop in a PDF or a photo. It goes straight to private storage through a short-lived upload link.</p>
             </li>
-            <li class="card">
+            <li>
               <span class="step-num">2</span>
               <h3>Lapse reads it</h3>
               <p>Amazon Textract finds the document type, issuer, parties and every date, along with the exact line each date came from. “Valid for 12 months” becomes an expiry date, calculated in code rather than guessed.</p>
             </li>
-            <li class="card">
+            <li>
               <span class="step-num">3</span>
               <h3>You confirm</h3>
               <p>Nothing is scheduled until you’ve checked the details against the document and fixed anything that’s off.</p>
             </li>
-            <li class="card">
+            <li>
               <span class="step-num">4</span>
               <h3>Reminders go out</h3>
               <p>Email reminders 60, 30 and 7 days before expiry, plus an in-app feed so nothing is missed if an email is.</p>
@@ -132,33 +137,35 @@
         </section>
 
         <section class="l-section" id="architecture" aria-labelledby="arch">
-          <p class="eyebrow">Architecture</p>
-          <h2 id="arch">Serverless on AWS. Nothing runs while it’s idle.</h2>
-          <p class="l-intro">
-            Every component is pay-per-use, defined in Terraform and deployed to
-            <code>us-east-1</code>. Each Lambda function has its own least-privilege IAM role.
-          </p>
+          <div class="l-section-head">
+            <p class="eyebrow">Architecture</p>
+            <h2 id="arch">Serverless on AWS. Nothing runs while it’s idle.</h2>
+            <p class="l-intro">
+              Every component is pay-per-use, defined in Terraform and deployed to
+              <code>us-east-1</code>. Each Lambda function has its own least-privilege IAM role.
+            </p>
+          </div>
           <pre class="flow" aria-label="Request flow">Browser ─► API Gateway (HTTP API) ─► Lambda ─► DynamoDB
-Browser ─► S3 (presigned upload) ─► ObjectCreated ─► Lambda ─► Textract ─► DynamoDB
+Browser ─► S3 (presigned upload) ─► SQS ─► Lambda ─► Textract ─► DynamoDB
 EventBridge Scheduler ─► Lambda ─► SES email + in-app feed</pre>
           <dl class="services">
             <div><dt>Amazon API Gateway + AWS Lambda</dt><dd>HTTP API with one Node.js 22 function per route on Graviton (arm64).</dd></div>
-            <div><dt>Amazon S3</dt><dd>Private document storage. Browsers upload directly with presigned URLs, and each upload triggers extraction.</dd></div>
+            <div><dt>Amazon S3 + SQS</dt><dd>Private document storage. Browsers upload directly with presigned URLs; each upload is queued for extraction, two at a time, with a dead-letter queue.</dd></div>
             <div><dt>Amazon Textract</dt><dd>AnalyzeDocument Queries ask each document for its type, issuer, holder and dates. Every answer has a confidence score and a quote of the line it came from. DD/MM dates and phrases like “valid for twelve months” are interpreted in code, not by a model.</dd></div>
             <div><dt>Amazon DynamoDB</dt><dd>Single-table design with on-demand capacity and point-in-time recovery.</dd></div>
             <div><dt>Amazon EventBridge Scheduler</dt><dd>One-time schedules for each reminder, deleted automatically after they fire.</dd></div>
-            <div><dt>Amazon SES</dt><dd>Reminder emails, also recorded to an in-app notification feed.</dd></div>
+            <div><dt>Amazon SES</dt><dd>Reminder emails with bounce and complaint suppression, also recorded to an in-app notification feed.</dd></div>
             <div><dt>Amazon CloudWatch + AWS X-Ray</dt><dd>Structured logs, traces and custom metrics through Powertools for AWS Lambda, with a dashboard and alarms.</dd></div>
             <div><dt>Terraform</dt><dd>All infrastructure as code. State is kept in S3 with native locking.</dd></div>
           </dl>
         </section>
 
-        <section class="l-cta card">
+        <section class="l-cta">
           <div>
             <h2>See it with your own documents.</h2>
-            <p class="muted">Upload a permit, certificate or policy and watch Lapse find its dates.</p>
+            <p>Upload a permit, certificate or policy, or load our samples, and watch Lapse find the dates.</p>
           </div>
-          <a class="button button-lg" href="/app">Try the demo</a>
+          <a class="button button-lg button-invert" href="/app">Try the demo →</a>
         </section>
       </main>
 
