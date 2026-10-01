@@ -39,7 +39,66 @@ locals {
       environment = { TABLE_NAME = var.table_name }
       statements  = [{ actions = ["dynamodb:GetItem"], resources = [var.table_arn] }]
     }
+    confirm-document = {
+      route_key   = "PUT /api/documents/{id}/confirm"
+      memory_size = 256
+      environment = local.scheduling_env
+      statements = [
+        { actions = ["dynamodb:GetItem", "dynamodb:UpdateItem"], resources = [var.table_arn] },
+        { actions = ["scheduler:CreateSchedule", "scheduler:DeleteSchedule"], resources = [local.schedule_arns] },
+        { actions = ["iam:PassRole"], resources = [var.scheduler_role_arn] },
+      ]
+    }
+    test-reminder = {
+      route_key   = "POST /api/documents/{id}/test-reminder"
+      memory_size = 256
+      environment = local.scheduling_env
+      statements = [
+        { actions = ["dynamodb:GetItem", "dynamodb:UpdateItem"], resources = [var.table_arn] },
+        { actions = ["scheduler:CreateSchedule"], resources = [local.schedule_arns] },
+        { actions = ["iam:PassRole"], resources = [var.scheduler_role_arn] },
+      ]
+    }
+    list-notifications = {
+      route_key   = "GET /api/notifications"
+      memory_size = 256
+      environment = { TABLE_NAME = var.table_name }
+      statements  = [{ actions = ["dynamodb:Query"], resources = [var.table_arn] }]
+    }
+    email-status = {
+      route_key   = "GET /api/email/status"
+      memory_size = 256
+      environment = {}
+      statements = [
+        { actions = ["ses:GetAccount"], resources = ["*"] }, # account-level call, no resource ARN
+        { actions = ["ses:GetEmailIdentity"], resources = [local.ses_identity_arns] },
+      ]
+    }
+    verify-email = {
+      route_key   = "POST /api/email/verify"
+      memory_size = 256
+      environment = { TABLE_NAME = var.table_name }
+      statements = [
+        { actions = ["dynamodb:UpdateItem"], resources = [var.table_arn] },
+        { actions = ["ses:GetAccount"], resources = ["*"] },
+        { actions = ["ses:GetEmailIdentity", "ses:CreateEmailIdentity"], resources = [local.ses_identity_arns] },
+      ]
+    }
   }
+}
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+locals {
+  scheduling_env = {
+    TABLE_NAME            = var.table_name
+    SCHEDULE_GROUP        = var.schedule_group_name
+    REMINDER_FUNCTION_ARN = var.reminder_function_arn
+    SCHEDULER_ROLE_ARN    = var.scheduler_role_arn
+  }
+  schedule_arns     = "arn:aws:scheduler:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:schedule/${var.schedule_group_name}/*"
+  ses_identity_arns = "arn:aws:ses:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:identity/*"
 }
 
 module "fn" {

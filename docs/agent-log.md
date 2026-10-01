@@ -192,3 +192,59 @@ before the DNS cutover.
 - *CSS order:* Vite emitted `landing.css` before `styles.css`, so base `.button` padding overrode
   `.button-sm/-lg`. Fixed by `@import`-ing `styles.css` from `landing.css` (one bundle).
 - *SSO token expiry* interrupts AWS calls about once a day: `aws sso login --profile zts`.
+
+## 2026-10-01 — M2: review/confirm, Scheduler reminders, SES + in-app feed
+
+**Asked:** Move on to M2. SES production access came back "more information needed". Also asked:
+can we work with the SES sandbox, and how should I reply to Support about the account
+verification?
+
+**Built:**
+- `PUT /api/documents/{id}/confirm`: validates the reviewed fields and the reminder email,
+  replaces all EventBridge Scheduler schedules (deletes old ones, then creates `at()` schedules
+  at 60/30/7 days before expiry, 09:00 WAT, future dates only, `ActionAfterCompletion=DELETE`), and
+  marks the document ACTIVE. `reminderEmail: null` = "Stop reminders". FAILED documents can be
+  confirmed with hand-entered details (the manual fallback for extraction).
+- `POST /api/documents/{id}/test-reminder`: one schedule 2 minutes out, at most one pending per
+  document (a ConflictException becomes 409).
+- `lapse-reminder` (Scheduler target): renders a transactional email (text + HTML, user text
+  escaped), sends through SES v2 with configuration set `lapse`, and **always** writes a
+  `NOTIF#<ts>#<docId>` item. In the sandbox an unverified recipient gives `NOT_DELIVERED`
+  ("In-app only") instead of an error.
+- `GET /api/notifications` (the in-app feed), `GET /api/email/status` (production access or a
+  verified address/domain counts as deliverable), and `POST /api/email/verify` (sandbox
+  fallback: AWS sends a verification link; capped at 3 per workspace with a DynamoDB counter).
+- `infra/modules/reminders`: schedule group, a Scheduler role that may only invoke the reminder
+  Lambda, the reminder Lambda, SES configuration set (bounce/complaint suppression, reputation
+  metrics, CloudWatch event destination), account-level suppression, and bounce/complaint-rate
+  alarms. These back up what the SES production-access reply describes.
+- Least privilege: confirm/test can only create or delete schedules in `schedule/lapse/*` and
+  pass only the Scheduler role; the SES calls are scoped to this account's identities.
+- UI: review form (pre-filled from extraction, flags a computed expiry, remembers the email,
+  shows deliverability with a verify button), reminders card (three reminder dates with
+  scheduled/sent/passed state, test button, edit, stop), and a Reminder activity feed on `/app`.
+- Tests: 20 (reminder timing incl. past offsets and the 1-minute lead, email copy, escaping).
+
+**Verified end to end against the live API:** validation (400s, 409 before confirm); confirm
+created exactly the future offsets (30d and 7d for a doc 55 days out); editing the expiry
+replaced them with 60/30/7; test reminders fired after about 2 minutes. The verified Gmail
+address got the email (the user confirmed it arrived, marked SENT), and the unverified address
+was recorded `NOT_DELIVERED` with SES's sandbox message. `testReminderAt` cleared after firing;
+the duplicate test returned 409; "stop" deleted every schedule. Screenshots checked for the
+review form, the feed (dark) and the active document.
+
+**Service status:**
+- SES production access: "more information needed". A reply was drafted covering the use case,
+  volume, opt-in, bounce/complaint handling and a sample email. Sandbox delivery plus
+  self-verification and the in-app feed covers the demo either way.
+- CloudFront and Bedrock: still blocked. A follow-up for the Support case was drafted with the
+  deadline, request IDs and use case.
+
+**Problems and fixes:**
+- *Sandbox send permissions:* in the SES sandbox, `ses:SendEmail` is also authorised against the
+  recipient identity, so the reminder Lambda is allowed `identity/*` in this account, not just
+  the sending domain.
+- *Empty metrics warning:* functions without custom metrics logged "No application metrics to
+  publish" on every call. `hasStoredMetrics()` now guards the flush.
+- *Test hygiene:* the e2e script stops reminders at the end, so the real 30/7-day schedules it
+  created don't email the user in the coming weeks.

@@ -22,6 +22,21 @@ export interface Extraction {
   extractor: string;
 }
 
+export interface ConfirmedFields {
+  title: string;
+  documentType: string;
+  issuer: string | null;
+  parties: string[];
+  issueDate: string | null;
+  expiryDate: string;
+}
+
+export interface ScheduledReminder {
+  offsetDays: number;
+  at: string;
+  scheduleName: string;
+}
+
 export interface DocumentRecord {
   workspaceId: string;
   docId: string;
@@ -34,7 +49,36 @@ export interface DocumentRecord {
   extraction?: Extraction;
   extractedAt?: string;
   error?: string;
+  confirmed?: ConfirmedFields;
+  confirmedAt?: string;
+  reminderEmail?: string | null;
+  reminders?: ScheduledReminder[];
+  testReminderAt?: string;
 }
+
+export type EmailStatus = 'SENT' | 'NOT_DELIVERED' | 'FAILED';
+
+export interface NotificationRecord {
+  docId: string;
+  title: string;
+  expiryDate: string;
+  daysLeft: number;
+  offsetDays: number | null;
+  test: boolean;
+  email: string;
+  emailStatus: EmailStatus;
+  emailDetail?: string;
+  sentAt: string;
+}
+
+export interface RecipientStatus {
+  email: string;
+  status: 'deliverable' | 'pending' | 'unverified';
+  sandbox: boolean;
+  message?: string;
+}
+
+export const REMINDER_OFFSETS = [60, 30, 7] as const;
 
 export const ACCEPTED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;

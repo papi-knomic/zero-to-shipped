@@ -10,13 +10,13 @@ Built for the AWS **Zero to Shipped** hackathon.
 
 | Milestone | Scope | State |
 |---|---|---|
-| M0 | State bucket, hello-world API, frontend shell | API live. CloudFront is waiting on AWS account verification. |
-| M1 | Upload, S3 trigger, mock extraction, DynamoDB, document list | Done (API live; UI runs locally) |
-| M2 | Review/confirm, EventBridge Scheduler reminders, SES | Next |
-| M3 | Bedrock/Textract extraction with evidence snippets | — |
+| M0 | State bucket, hello-world API, frontend shell | Live at https://lapse.reck-tech.com (served from API Gateway; CloudFront awaiting account verification) |
+| M1 | Upload, S3 trigger, mock extraction, DynamoDB, document list | Done |
+| M2 | Review/confirm, EventBridge Scheduler reminders, SES + in-app feed | Done (SES in sandbox: verified recipients + in-app feed) |
+| M3 | Textract extraction (Bedrock blocked for now) with evidence snippets | Next |
 | M4 | Demo mode, dashboard, alarms, polish | — |
 
-Health check: `https://imuwupqf28.execute-api.us-east-1.amazonaws.com/api/health`
+Live: https://lapse.reck-tech.com · demo at `/app` · health check at `/api/health`
 
 ## Architecture
 
@@ -48,13 +48,17 @@ All routes require an `x-workspace-id` header (a UUID; demo mode has no login).
 | `POST /api/uploads` | `{filename, contentType, size}` → document + presigned PUT URL (PDF/PNG/JPEG, ≤ 10 MB) |
 | `GET /api/documents` | Workspace documents, newest first |
 | `GET /api/documents/{id}` | One document with its extraction |
+| `PUT /api/documents/{id}/confirm` | Save reviewed fields, (re)schedule 60/30/7-day reminders; `reminderEmail: null` stops them |
+| `POST /api/documents/{id}/test-reminder` | Demo: one reminder two minutes from now |
+| `GET /api/notifications` | In-app reminder feed |
+| `GET /api/email/status` · `POST /api/email/verify` | SES sandbox: can this address receive reminders? Send AWS's verification link |
 
 ## Repo layout
 
 ```
 bootstrap/   Terraform state bucket (local state, apply once)
 infra/       App infrastructure (S3 backend with native lockfile)
-  modules/   lambda (shared), api, storage, extraction, frontend
+  modules/   lambda (shared), api, storage, extraction, reminders, domain, frontend
 services/    Lambda code (TypeScript, bundled with esbuild)
   src/handlers/    one file per Lambda
   src/extractors/  Extractor interface, mock, expiry normalisation

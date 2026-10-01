@@ -12,8 +12,22 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/** Confirmed values win over extracted ones once the user has reviewed the document. */
 export function expiryDate(doc: DocumentRecord): string | undefined {
-  return doc.extraction?.dates.find((d) => d.label === 'expiry')?.isoDate;
+  return doc.confirmed?.expiryDate ?? doc.extraction?.dates.find((d) => d.label === 'expiry')?.isoDate;
+}
+
+export function docTitle(doc: DocumentRecord): string {
+  return doc.confirmed?.title ?? doc.extraction?.title ?? doc.filename;
+}
+
+export function docSubtitle(doc: DocumentRecord): string {
+  const src = doc.confirmed ?? doc.extraction;
+  return src ? [src.documentType, src.issuer].filter(Boolean).join(' · ') : doc.filename;
+}
+
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 /** Whole days from today (UTC) to the given date; negative when past. */

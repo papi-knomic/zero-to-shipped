@@ -1,7 +1,7 @@
-import type { DocumentRecord } from './types';
+import type { ConfirmedFields, DocumentRecord, NotificationRecord, RecipientStatus } from './types';
 
-// Deployed builds call the HTTP API directly (CORS allows only the CloudFront origin).
-// Unset in dev, where Vite proxies relative /api requests.
+// Empty (same origin) when the API serves the site or in dev (Vite proxies /api). On CloudFront
+// the build bakes in the API URL, and the API's CORS allows only the CloudFront origin.
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 const WORKSPACE_KEY = 'lapse.workspaceId';
 let fallbackId: string | undefined;
@@ -65,4 +65,24 @@ export const api = {
     if (!put.ok) throw new ApiError(put.status, `Upload to storage failed (${put.status})`);
     return document;
   },
+
+  /** Saves reviewed fields and (re)schedules reminders. reminderEmail null = stop reminders. */
+  confirmDocument: (id: string, fields: ConfirmedFields, reminderEmail: string | null) =>
+    request<{ document: DocumentRecord }>(`/api/documents/${encodeURIComponent(id)}/confirm`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...fields, reminderEmail }),
+    }).then((r) => r.document),
+
+  sendTestReminder: (id: string) =>
+    request<{ scheduledFor: string; email: string }>(`/api/documents/${encodeURIComponent(id)}/test-reminder`, {
+      method: 'POST',
+    }),
+
+  listNotifications: () =>
+    request<{ notifications: NotificationRecord[] }>('/api/notifications').then((r) => r.notifications),
+
+  emailStatus: (email: string) => request<RecipientStatus>(`/api/email/status?email=${encodeURIComponent(email)}`),
+
+  verifyEmail: (email: string) =>
+    request<RecipientStatus>('/api/email/verify', { method: 'POST', body: JSON.stringify({ email }) }),
 };

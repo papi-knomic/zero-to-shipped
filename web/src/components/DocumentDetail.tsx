@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ApiError, api } from '../lib/api';
-import { docUrgency, formatBytes, formatDate, isInFlight } from '../lib/format';
+import { docTitle, docUrgency, formatBytes, formatDate, isInFlight } from '../lib/format';
 import { APP_HOME, linkHandler } from '../lib/router';
-import type { DocumentRecord } from '../lib/types';
+import type { DocumentRecord, ExtractedDate } from '../lib/types';
 import { Icon } from './Icon';
+import { RemindersCard } from './RemindersCard';
+import { ReviewForm } from './ReviewForm';
 import { StatusBadge } from './StatusBadge';
 import { ValidityTimeline } from './ValidityTimeline';
 
@@ -23,6 +25,9 @@ function Skeleton() {
 export function DocumentDetail({ id }: { id: string }) {
   const [doc, setDoc] = useState<DocumentRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +50,7 @@ export function DocumentDetail({ id }: { id: string }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [id]);
+  }, [id, version]);
 
   const back = (
     <a className="back" href={APP_HOME} onClick={linkHandler(APP_HOME)}>
@@ -75,6 +80,21 @@ export function DocumentDetail({ id }: { id: string }) {
   }
 
   const x = doc.extraction;
+  const c = doc.confirmed;
+  // After review, the timeline follows the confirmed dates, not the extracted ones.
+  const timelineDates: ExtractedDate[] = c
+    ? [
+        ...(c.issueDate ? [{ label: 'issue' as const, isoDate: c.issueDate, evidence: '', confidence: 1 }] : []),
+        { label: 'expiry' as const, isoDate: c.expiryDate, evidence: '', confidence: 1 },
+      ]
+    : (x?.dates ?? []);
+  const reviewing = doc.status === 'NEEDS_REVIEW' || doc.status === 'FAILED' || editing;
+  const saved = (next: DocumentRecord) => {
+    setDoc(next);
+    setEditing(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="detail">
       {back}
@@ -84,8 +104,8 @@ export function DocumentDetail({ id }: { id: string }) {
           <Icon name="file" size={24} />
         </span>
         <div className="detail-title">
-          {x && <p className="eyebrow">{x.documentType}</p>}
-          <h1>{x?.title ?? doc.filename}</h1>
+          {(c ?? x) && <p className="eyebrow">{(c ?? x)!.documentType}</p>}
+          <h1>{docTitle(doc)}</h1>
           <p className="muted small">
             {doc.filename} · {formatBytes(doc.size)} · uploaded {formatDate(doc.createdAt)}
           </p>
@@ -96,7 +116,7 @@ export function DocumentDetail({ id }: { id: string }) {
       {doc.status === 'FAILED' && (
         <p className="notice notice-error">
           <Icon name="alert" size={16} />
-          Extraction failed: {doc.error ?? 'unknown error'}
+          Lapse couldn’t read this document ({doc.error ?? 'unknown error'}). You can enter the details yourself below.
         </p>
       )}
       {isInFlight(doc.status) && (
@@ -108,16 +128,17 @@ export function DocumentDetail({ id }: { id: string }) {
           <Skeleton />
         </>
       )}
-      {doc.status === 'NEEDS_REVIEW' && (
-        <p className="notice notice-brand">
-          <Icon name="eye" size={16} />
-          Check these details against the document. Confirming them and scheduling reminders comes next.
-        </p>
+      {reviewing && !isInFlight(doc.status) && (
+        <ReviewForm key={doc.updatedAt} doc={doc} onSaved={saved} onCancel={editing ? () => setEditing(false) : undefined} />
       )}
+
+      {doc.status === 'ACTIVE' && !editing && <RemindersCard doc={doc} onEdit={() => setEditing(true)} onChanged={reload} />}
+
+      {(x || c) && <ValidityTimeline dates={timelineDates} />}
 
       {x && (
         <>
-          <ValidityTimeline dates={x.dates} />
+          <h2 className="section-label">{c ? 'Originally extracted' : 'What Lapse found'}</h2>
 
           <div className="detail-grid">
             <section className="card">

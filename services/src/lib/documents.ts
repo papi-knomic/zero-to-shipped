@@ -10,6 +10,23 @@ export interface StoredExtraction extends ExtractionResult {
   extractor: string;
 }
 
+/** What the user confirmed on review. Reminders are scheduled from these, not the extraction. */
+export interface ConfirmedFields {
+  title: string;
+  documentType: string;
+  issuer: string | null;
+  parties: string[];
+  issueDate: string | null;
+  expiryDate: string;
+}
+
+export interface ScheduledReminder {
+  offsetDays: number;
+  /** ISO timestamp (UTC) the reminder fires. */
+  at: string;
+  scheduleName: string;
+}
+
 /** A document as returned by the API (DynamoDB keys stripped). */
 export interface DocumentRecord {
   workspaceId: string;
@@ -24,6 +41,12 @@ export interface DocumentRecord {
   extraction?: StoredExtraction;
   extractedAt?: string;
   error?: string;
+  confirmed?: ConfirmedFields;
+  confirmedAt?: string;
+  reminderEmail?: string;
+  reminders?: ScheduledReminder[];
+  /** Set while a demo "test reminder" is pending. */
+  testReminderAt?: string;
 }
 
 export interface DocumentItem extends DocumentRecord {
@@ -34,6 +57,26 @@ export interface DocumentItem extends DocumentRecord {
 export const workspacePk = (workspaceId: string) => `WS#${workspaceId}`;
 export const documentSk = (docId: string) => `DOC#${docId}`;
 export const DOCUMENT_SK_PREFIX = 'DOC#';
+export const NOTIFICATION_SK_PREFIX = 'NOTIF#';
+/** NOTIF#<sent at>#<docId>: sorts by time within the workspace. */
+export const notificationSk = (sentAt: string, docId: string) => `${NOTIFICATION_SK_PREFIX}${sentAt}#${docId}`;
+
+export type EmailStatus = 'SENT' | 'NOT_DELIVERED' | 'FAILED';
+
+/** One reminder, as shown in the in-app feed (always written, whatever happened to the email). */
+export interface NotificationRecord {
+  workspaceId: string;
+  docId: string;
+  title: string;
+  expiryDate: string;
+  daysLeft: number;
+  offsetDays: number | null;
+  test: boolean;
+  email: string;
+  emailStatus: EmailStatus;
+  emailDetail?: string;
+  sentAt: string;
+}
 
 /** S3 key layout: ws/<workspaceId>/<docId>/<safe filename>. The extract Lambda parses it back. */
 export function documentS3Key(workspaceId: string, docId: string, filename: string): string {

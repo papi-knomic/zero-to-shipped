@@ -1,4 +1,4 @@
-import { byUrgency, daysUntil, describeDaysUntil, docUrgency, expiryDate, formatDate, isInFlight } from '../lib/format';
+import { byUrgency, daysUntil, describeDaysUntil, docSubtitle, docTitle, docUrgency, expiryDate, formatDate, isInFlight } from '../lib/format';
 import { linkHandler } from '../lib/router';
 import type { DocumentRecord } from '../lib/types';
 import { Icon } from './Icon';
@@ -32,7 +32,6 @@ export function DocumentList({ documents }: { documents: DocumentRecord[] }) {
     <ul className="doc-list" aria-label="Documents">
       {[...documents].sort(byUrgency).map((doc) => {
         const path = `/documents/${doc.docId}`;
-        const x = doc.extraction;
         return (
           <li key={doc.docId}>
             <a className={`doc-row tone-${docUrgency(doc)}`} href={path} onClick={linkHandler(path)}>
@@ -40,8 +39,8 @@ export function DocumentList({ documents }: { documents: DocumentRecord[] }) {
                 <Icon name="file" size={20} />
               </span>
               <span className="doc-main">
-                <span className="doc-title">{x?.title ?? doc.filename}</span>
-                <span className="doc-meta">{x ? [x.documentType, x.issuer].filter(Boolean).join(' · ') : doc.filename}</span>
+                <span className="doc-title">{docTitle(doc)}</span>
+                <span className="doc-meta">{docSubtitle(doc)}</span>
               </span>
               <Expiry doc={doc} />
               <StatusBadge status={doc.status} />

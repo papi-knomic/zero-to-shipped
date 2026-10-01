@@ -38,3 +38,15 @@ variable "serve_web" {
   description = "Serve the web build from this API (fallback while CloudFront is unavailable)."
   type        = bool
 }
+
+variable "schedule_group_name" {
+  type = string
+}
+
+variable "reminder_function_arn" {
+  type = string
+}
+
+variable "scheduler_role_arn" {
+  type = string
+}

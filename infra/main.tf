@@ -46,6 +46,21 @@ module "api" {
   uploads_bucket_name = module.storage.uploads_bucket_name
   uploads_bucket_arn  = module.storage.uploads_bucket_arn
   serve_web           = local.serve_web
+
+  schedule_group_name   = module.reminders.schedule_group_name
+  reminder_function_arn = module.reminders.reminder_function_arn
+  scheduler_role_arn    = module.reminders.scheduler_role_arn
+}
+
+module "reminders" {
+  source = "./modules/reminders"
+
+  name             = local.name
+  lambda_dist_root = "${path.root}/../services/dist"
+  table_name       = module.storage.table_name
+  table_arn        = module.storage.table_arn
+  from_address     = var.ses_from_address
+  app_url          = var.custom_domain_attach ? "https://${var.custom_domain}" : module.api.api_endpoint
 }
 
 module "extraction" {

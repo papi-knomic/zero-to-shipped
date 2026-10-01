@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DocumentDetail } from './components/DocumentDetail';
 import { DocumentList } from './components/DocumentList';
+import { NotificationsFeed } from './components/NotificationsFeed';
 import { Icon, LogoMark } from './components/Icon';
 import { StatsBar } from './components/StatsBar';
 import { UploadDropzone } from './components/UploadDropzone';
 import { api } from './lib/api';
 import { isInFlight } from './lib/format';
 import { useRoute } from './lib/router';
-import type { DocumentRecord } from './lib/types';
+import type { DocumentRecord, NotificationRecord } from './lib/types';
 
 type ApiStatus = 'checking' | 'healthy' | 'unreachable';
 const POLL_MS = 2000;
+const TEST_POLL_MS = 8000;
 const API_STATUS_LABEL: Record<ApiStatus, string> = { checking: 'Connecting', healthy: 'Online', unreachable: 'Offline' };
 
 function useApiHealth(): ApiStatus {
@@ -26,6 +28,7 @@ function useApiHealth(): ApiStatus {
 
 function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentRecord[] | null>(null);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
@@ -36,12 +39,14 @@ function DocumentsPage() {
 
     const load = async () => {
       try {
-        const docs = await api.listDocuments();
+        const [docs, feed] = await Promise.all([api.listDocuments(), api.listNotifications().catch(() => null)]);
         if (cancelled) return;
         setDocuments(docs);
+        if (feed) setNotifications(feed);
         setError(null);
-        // Keep polling while anything is uploading or being read.
+        // Poll quickly while anything is being read, slowly while a test reminder is on its way.
         if (docs.some((d) => isInFlight(d.status))) timer = window.setTimeout(load, POLL_MS);
+        else if (docs.some((d) => d.testReminderAt)) timer = window.setTimeout(load, TEST_POLL_MS);
       } catch {
         if (!cancelled) setError('Could not load documents. Is the API reachable?');
       }
@@ -107,6 +112,18 @@ function DocumentsPage() {
           documents && <DocumentList documents={documents} />
         )}
       </section>
+
+      {documents && documents.length > 0 && (
+        <section className="activity" id="activity">
+          <div className="section-head">
+            <h2>Reminder activity</h2>
+            <span className="muted small">Every reminder appears here, even if the email can’t be delivered</span>
+          </div>
+          <div className="card">
+            <NotificationsFeed notifications={notifications} />
+          </div>
+        </section>
+      )}
     </>
   );
 }

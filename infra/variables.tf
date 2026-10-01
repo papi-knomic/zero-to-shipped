@@ -34,3 +34,9 @@ variable "custom_domain_attach" {
   type        = bool
   default     = true
 }
+
+variable "ses_from_address" {
+  description = "Reminder sender. Its domain (reck-tech.com) is verified in SES outside Terraform."
+  type        = string
+  default     = "reminders@reck-tech.com"
+}
