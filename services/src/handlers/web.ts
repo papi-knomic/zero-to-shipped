@@ -20,6 +20,7 @@ const TYPES: Record<string, string> = {
   '.json': 'application/json',
   '.txt': 'text/plain; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon',

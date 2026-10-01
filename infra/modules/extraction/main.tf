@@ -23,6 +23,11 @@ module "extract" {
   policy_statements = [
     { actions = ["s3:GetObject"], resources = ["${var.uploads_bucket_arn}/ws/*"] },
     { actions = ["dynamodb:UpdateItem"], resources = [var.table_arn] },
+    # Textract has no resource-level permissions; it reads the object with this role's s3:GetObject.
+    {
+      actions   = ["textract:AnalyzeDocument", "textract:StartDocumentAnalysis", "textract:GetDocumentAnalysis"]
+      resources = ["*"]
+    },
   ]
 }
 

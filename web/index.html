@@ -116,7 +116,7 @@
             <li class="card">
               <span class="step-num">2</span>
               <h3>Lapse reads it</h3>
-              <p>AI extraction finds the document type, issuer, parties and every date, along with the exact quote each date came from. “Valid for 12 months” becomes an expiry date, calculated in code rather than guessed.</p>
+              <p>Amazon Textract finds the document type, issuer, parties and every date, along with the exact line each date came from. “Valid for 12 months” becomes an expiry date, calculated in code rather than guessed.</p>
             </li>
             <li class="card">
               <span class="step-num">3</span>
@@ -139,12 +139,12 @@
             <code>us-east-1</code>. Each Lambda function has its own least-privilege IAM role.
           </p>
           <pre class="flow" aria-label="Request flow">Browser ─► API Gateway (HTTP API) ─► Lambda ─► DynamoDB
-Browser ─► S3 (presigned upload) ─► ObjectCreated ─► Lambda ─► Bedrock ─► DynamoDB
+Browser ─► S3 (presigned upload) ─► ObjectCreated ─► Lambda ─► Textract ─► DynamoDB
 EventBridge Scheduler ─► Lambda ─► SES email + in-app feed</pre>
           <dl class="services">
             <div><dt>Amazon API Gateway + AWS Lambda</dt><dd>HTTP API with one Node.js 22 function per route on Graviton (arm64).</dd></div>
             <div><dt>Amazon S3</dt><dd>Private document storage. Browsers upload directly with presigned URLs, and each upload triggers extraction.</dd></div>
-            <div><dt>Amazon Bedrock</dt><dd>Claude reads each document and returns structured fields with evidence quotes. It escalates to a larger model when confidence is low, with Amazon Textract as the fallback.</dd></div>
+            <div><dt>Amazon Textract</dt><dd>AnalyzeDocument Queries ask each document for its type, issuer, holder and dates. Every answer has a confidence score and a quote of the line it came from. DD/MM dates and phrases like “valid for twelve months” are interpreted in code, not by a model.</dd></div>
             <div><dt>Amazon DynamoDB</dt><dd>Single-table design with on-demand capacity and point-in-time recovery.</dd></div>
             <div><dt>Amazon EventBridge Scheduler</dt><dd>One-time schedules for each reminder, deleted automatically after they fire.</dd></div>
             <div><dt>Amazon SES</dt><dd>Reminder emails, also recorded to an in-app notification feed.</dd></div>

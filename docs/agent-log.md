@@ -248,3 +248,49 @@ review form, the feed (dark) and the active document.
   publish" on every call. `hasStoredMetrics()` now guards the flush.
 - *Test hygiene:* the e2e script stops reminders at the end, so the real 30/7-day schedules it
   created don't email the user in the coming weeks.
+
+## 2026-10-01 — M3: Textract extractor
+
+**Asked:** Move to M3. Bedrock is blocked on the account, so use Textract (the fallback CLAUDE.md
+names).
+
+**Built:**
+- `services/src/extractors/textract.ts`: AnalyzeDocument with 10 **Queries** (type, title,
+  issuer, holder, issue / effective / expiry / valid-until dates, period, validity). It calls the
+  sync API with S3Object and falls back to async Start/GetDocumentAnalysis for multi-page PDFs
+  (first 3 pages only, since Textract bills per page). `fromBlocks()` is pure and maps the answers:
+  - title from the short "type" answer; category by keyword
+  - issuer: Textract's answer unless it equals the holder, otherwise the most specific
+    organisation in the letterhead (SERVICE/MINISTRY > COMPANY > GOVERNMENT)
+  - contracts: parties from "BETWEEN … (the Landlord) / AND … (the Tenant)", no issuer
+  - expiry = most confident candidate that falls *after* the start date
+  - "From X to Y" gives both the effective and the expiry date
+  - evidence = the full LINE the answer was found on
+- `services/src/extractors/parse.ts`: DD/MM-first date parsing (numeric, written-out, ISO),
+  durations ("twelve (12) calendar months" → P12M, "a term of two (2) years" → P2Y), tidy
+  title-casing of SHOUTED text with acronyms preserved.
+- `scripts/make-samples.mjs`: five realistic Nigerian sample PDFs (fire certificate, insurance
+  policy, tax clearance, premises permit, tenancy) with dates relative to the build day.
+  The deploy script regenerates them; they're served at `/samples/*.pdf` for M4's demo seeding.
+- Tests: 36, including `fromBlocks` against the **real Textract responses** for all five samples
+  (trimmed fixtures).
+- Landing page now states Textract instead of Bedrock/Claude, so the page matches what runs.
+
+**Verified live:** all five samples downloaded from the site, uploaded through the API, and
+extracted correctly in 7–9 s each (dates, issuers, parties and evidence lines checked against
+the PDFs).
+
+**Problems and fixes:**
+- *Textract named the holder as the issuer* (fire certificate) and *answered "valid until?" with
+  the start date* (tenancy, 47%). Fixed with the holder≠issuer check, the letterhead fallback, and
+  the "expiry must follow start" rule. Each case has a fixture test.
+- *Letterhead picked a contract party line* ("AND Adebayo Foods Limited (the Tenant)"). Contracts
+  skip the letterhead, and party lines are excluded.
+- *A scripted edit wrote a literal backspace* into a regex (Python turned `\b` into 0x08). Caught
+  through a SyntaxWarning plus `cat -A`; fixed with the editor and covered by a new test.
+- *CLI shorthand doesn't accept `fileb://` inside `Bytes=`.* Probed Textract through the SDK.
+- **Lambda concurrency limit is 5 on this new account.** Five parallel 7-second extractions used
+  every slot, and API calls got 503s (3 throttles in CloudWatch). Requested a quota increase to
+  1,000 (Service Quotas, PENDING). Reserved concurrency can't be used, since AWS keeps 10
+  unreserved slots. Next: an SQS buffer with max concurrency 2 in front of extraction.
+- Local network resets (ECONNRESET) during testing: the e2e script now retries fetches.

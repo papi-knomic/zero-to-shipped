@@ -15,9 +15,9 @@ variable "dev_origins" {
 }
 
 variable "extractor" {
-  description = "Extraction backend for the extract Lambda: mock | bedrock | textract."
+  description = "Extraction backend for the extract Lambda: mock | bedrock | textract. Bedrock is blocked on this account for now."
   type        = string
-  default     = "mock"
+  default     = "textract"
 }
 
 variable "custom_domain" {

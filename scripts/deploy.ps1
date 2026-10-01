@@ -34,6 +34,8 @@ if ($account.Trim() -ne $ExpectedAccount) { throw "Wrong AWS account: $account (
 Write-Host "AWS account OK: $account" -ForegroundColor Green
 
 # 2. Web first: served same-origin by the API fallback, so no API URL is baked in.
+#    Sample documents are regenerated so their dates stay relative to the deploy day.
+Invoke-Checked 'sample documents' { node "$Root/scripts/make-samples.mjs" }
 Push-Location "$Root/web"
 try { Invoke-Checked 'web: npm ci' { npm ci --no-audit --no-fund } } finally { Pop-Location }
 Build-Web -ApiUrl ''
