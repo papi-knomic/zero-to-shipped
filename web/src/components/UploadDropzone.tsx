@@ -27,8 +27,10 @@ export function UploadDropzone({ onUploaded }: Props) {
     if (valid.length === 0) return;
 
     setBusy((n) => n + valid.length);
-    await Promise.all(
-      valid.map(async (file) => {
+    // Two at a time, to stay inside the account's small Lambda concurrency.
+    const queue = [...valid];
+    const worker = async () => {
+      for (let file = queue.shift(); file; file = queue.shift()) {
         try {
           await api.uploadDocument(file);
         } catch (err) {
@@ -37,8 +39,9 @@ export function UploadDropzone({ onUploaded }: Props) {
           setBusy((n) => n - 1);
           onUploaded();
         }
-      }),
-    );
+      }
+    };
+    await Promise.all([worker(), worker()]);
   }
 
   return (

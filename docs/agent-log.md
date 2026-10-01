@@ -294,3 +294,41 @@ the PDFs).
   1,000 (Service Quotas, PENDING). Reserved concurrency can't be used, since AWS keeps 10
   unreserved slots. Next: an SQS buffer with max concurrency 2 in front of extraction.
 - Local network resets (ECONNRESET) during testing: the e2e script now retries fetches.
+
+## 2026-10-01 — M4: SQS buffer, demo mode, dashboard, alarms, docs
+
+**Asked:** Request the Lambda concurrency increase, commit M3, then build the SQS buffer and M4.
+
+**Built:**
+- **SQS between S3 and extraction:** a queue with a dead-letter queue (3 receives), visibility
+  timeout 6× the function timeout, and a queue policy limited to this bucket in this account. The
+  event source mapping has **maximum concurrency 2** and reports per-message failures. The
+  handler retries throttling and transient errors through the queue and marks a document FAILED
+  only for permanent errors or on the last attempt.
+- **Demo mode:** "Load sample documents" uploads the five generated PDFs through the real
+  pipeline, then confirms two (reminders off) so judges see a mix of statuses and urgencies.
+- **Observability module:** CloudWatch dashboard `lapse` (documents, extraction latency,
+  reminders, API traffic and latency, Lambda concurrency/errors/throttles, errors by function,
+  queue and DLQ, SES events, alarm panel). Five alarms: API 5xx, Lambda errors, Lambda throttles,
+  extraction failures, DLQ not empty. They notify an SNS topic, with optional `alarm_email`.
+- `docs/architecture.md` (Mermaid diagram, flows, data model, security, account constraints)
+  and a README rewritten for judges: a two-minute walkthrough, the fallback table and the API.
+- Removed `localhost:5173` from the upload CORS before submission.
+
+**Verified live:** sample loading through `lapse.reck-tech.com`: five uploads, the queue
+holding the later ones in UPLOADING, all NEEDS_REVIEW, two confirmed to ACTIVE, in 22 s. Metrics
+are on the dashboard (23 extractions, 7 confirmations, reminders) and all 7 alarms are OK.
+
+**Problems and fixes:**
+- *The Lambda concurrency quota request* (5 → 1,000) went to **manual review** (CASE_OPENED).
+- *The API itself was throttled under the demo burst.* Even with extraction capped, five
+  parallel uploads plus five sample downloads (cold starts) hit the 5-slot limit: 2 throttles,
+  one failed upload. Fixes in the browser:
+  - the API client retries 503/429 with exponential backoff and jitter (safe, because a
+    throttled request never runs the function)
+  - samples upload one at a time
+  - drag-and-drop uploads at most two at a time
+
+  The re-run had 0 failed calls (5 throttles absorbed by retries).
+- *Terraform has no function literals:* an attempted helper in `locals` was invalid HCL. I
+  removed it and wrote the dashboard widgets out in full.

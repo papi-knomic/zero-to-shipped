@@ -35,3 +35,7 @@ output "custom_domain_target" {
   description = "CNAME target for the custom hostname (after custom_domain_attach = true)."
   value       = one(module.domain[*].target_domain_name)
 }
+
+output "dashboard_url" {
+  value = module.observability.dashboard_url
+}

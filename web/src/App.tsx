@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { DocumentDetail } from './components/DocumentDetail';
 import { DocumentList } from './components/DocumentList';
 import { NotificationsFeed } from './components/NotificationsFeed';
+import { SampleLoader } from './components/SampleLoader';
 import { Icon, LogoMark } from './components/Icon';
 import { StatsBar } from './components/StatsBar';
 import { UploadDropzone } from './components/UploadDropzone';
@@ -96,12 +97,19 @@ function DocumentsPage() {
         </p>
       )}
 
+      {documents && documents.length === 0 && <SampleLoader onChange={refresh} />}
+
       {documents && documents.length > 0 && <StatsBar documents={documents} />}
 
       <section className="documents">
         <div className="section-head">
           <h2>Your documents</h2>
-          {documents && documents.length > 0 && <span className="muted small">Soonest expiry first</span>}
+          {documents && documents.length > 0 && (
+            <span className="section-tools">
+              <span className="muted small">Soonest expiry first</span>
+              <SampleLoader onChange={refresh} compact />
+            </span>
+          )}
         </div>
         {documents === null && !error ? (
           <div className="card skeleton-card" aria-label="Loading documents">

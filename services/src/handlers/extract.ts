@@ -1,14 +1,26 @@
 import { MetricUnit } from '@aws-lambda-powertools/metrics';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import type { S3Event, S3EventRecord } from 'aws-lambda';
+import type { S3Event, S3EventRecord, SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { getExtractor, normalizeExtraction } from '../extractors/index.ts';
 import { ddb, requireEnv } from '../lib/aws.ts';
 import { MAX_UPLOAD_BYTES, documentSk, parseDocumentS3Key, workspacePk, type StoredExtraction } from '../lib/documents.ts';
 import { instrument, logger, metrics } from '../lib/observability.ts';
 
 const TABLE_NAME = requireEnv('TABLE_NAME');
+/** Must match the queue's redrive maxReceiveCount: the last attempt marks the document FAILED. */
+const MAX_ATTEMPTS = Number(process.env.MAX_ATTEMPTS ?? 3);
 const extractor = getExtractor();
+
+/** Throttling and transient service errors are worth another go via the queue. */
+function isRetryable(err: unknown): boolean {
+  const e = err as { name?: string; $retryable?: unknown; $metadata?: { httpStatusCode?: number } };
+  return (
+    Boolean(e?.$retryable) ||
+    /Throttl|ProvisionedThroughputExceeded|LimitExceeded|TooManyRequests|InternalServerError|ServiceUnavailable|Timeout/i.test(e?.name ?? '') ||
+    (e?.$metadata?.httpStatusCode ?? 0) >= 500
+  );
+}
 
 type Key = { PK: string; SK: string };
 
@@ -41,7 +53,7 @@ async function updateDocument(key: Key, fields: Record<string, unknown>, remove:
   }
 }
 
-async function processRecord(record: S3EventRecord): Promise<void> {
+async function processRecord(record: S3EventRecord, attempt: number): Promise<void> {
   const bucket = record.s3.bucket.name;
   const s3Key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
   const parsed = parseDocumentS3Key(s3Key);
@@ -83,7 +95,12 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       dates: result.dates.length,
     });
   } catch (err) {
-    // Mark FAILED instead of throwing, so S3's async retries don't re-run a broken document.
+    if (isRetryable(err) && attempt < MAX_ATTEMPTS) {
+      logger.warn('extraction failed, will retry', { attempt, error: String(err) });
+      metrics.addMetric('ExtractionRetries', MetricUnit.Count, 1);
+      throw err; // reported as a batch item failure: SQS redelivers after the visibility timeout
+    }
+    // Permanent (or out of attempts): mark FAILED so the user can enter the details by hand.
     logger.error('extraction failed', err as Error);
     metrics.addMetric('ExtractionFailures', MetricUnit.Count, 1);
     await updateDocument(key, {
@@ -96,9 +113,21 @@ async function processRecord(record: S3EventRecord): Promise<void> {
   }
 }
 
-/** S3 ObjectCreated (ws/ prefix) → run the configured extractor → NEEDS_REVIEW. */
-export const handler = instrument(async (event: S3Event) => {
-  for (const record of event.Records) {
-    await processRecord(record);
+/**
+ * S3 ObjectCreated (ws/ prefix) → SQS → here (at most 2 concurrent) → extractor → NEEDS_REVIEW.
+ * The queue keeps extraction from using up the account's Lambda concurrency during bursts.
+ */
+export const handler = instrument(async (event: SQSEvent): Promise<SQSBatchResponse> => {
+  const batchItemFailures: SQSBatchResponse['batchItemFailures'] = [];
+  for (const message of event.Records) {
+    const body = JSON.parse(message.body) as Partial<S3Event> & { Event?: string };
+    if (body.Event === 's3:TestEvent') continue; // sent once when the notification is configured
+    const attempt = Number(message.attributes.ApproximateReceiveCount ?? 1);
+    try {
+      for (const record of body.Records ?? []) await processRecord(record, attempt);
+    } catch {
+      batchItemFailures.push({ itemIdentifier: message.messageId });
+    }
   }
+  return { batchItemFailures };
 });

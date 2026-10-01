@@ -11,7 +11,7 @@ variable "enable_cloudfront" {
 variable "dev_origins" {
   description = "Extra origins allowed to PUT to presigned upload URLs (local Vite dev). Empty before submission."
   type        = list(string)
-  default     = ["http://localhost:5173"]
+  default     = []
 }
 
 variable "extractor" {
@@ -39,4 +39,10 @@ variable "ses_from_address" {
   description = "Reminder sender. Its domain (reck-tech.com) is verified in SES outside Terraform."
   type        = string
   default     = "reminders@reck-tech.com"
+}
+
+variable "alarm_email" {
+  description = "Optional email for CloudWatch alarm notifications (SNS sends a confirmation link)."
+  type        = string
+  default     = ""
 }

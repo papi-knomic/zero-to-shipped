@@ -85,3 +85,14 @@ module "domain" {
   api_id      = module.api.api_id
   stage_id    = module.api.stage_id
 }
+
+module "observability" {
+  source = "./modules/observability"
+
+  name                  = local.name
+  api_id                = module.api.api_id
+  queue_name            = module.extraction.queue_name
+  dlq_name              = module.extraction.dlq_name
+  ses_configuration_set = module.reminders.configuration_set_name
+  alarm_email           = var.alarm_email
+}

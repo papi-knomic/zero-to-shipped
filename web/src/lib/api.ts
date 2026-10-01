@@ -35,8 +35,20 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The account's Lambda concurrency is tiny (5) until AWS raises it, so bursts get throttled:
+ * API Gateway answers 503/429 *without* running the function, which makes a retry safe.
+ */
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 5): Promise<Response> {
+  for (let i = 0; ; i++) {
+    const res = await fetch(url, init);
+    if ((res.status !== 503 && res.status !== 429) || i >= attempts - 1) return res;
+    await new Promise((r) => setTimeout(r, 400 * 2 ** i + Math.random() * 200));
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetchWithRetry(`${API_URL}${path}`, {
     ...init,
     headers: { 'content-type': 'application/json', 'x-workspace-id': getWorkspaceId(), ...init.headers },
   });
