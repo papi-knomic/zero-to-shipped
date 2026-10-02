@@ -61,3 +61,75 @@ describe('fromBlocks (real Textract responses)', () => {
     assert.deepEqual([date(r, 'expiry')?.isoDate, date(r, 'expiry')?.computed], ['2026-10-31', true]);
   });
 });
+
+// A QUERY block and its answer, as Textract returns them (one pair per page for multi-page PDFs).
+const query = (Alias: string, Text: string, Confidence: number, Page = 1): Block[] => [
+  { BlockType: 'QUERY', Id: `q-${Alias}-${Page}`, Page, Query: { Alias, Text: Alias }, Relationships: [{ Type: 'ANSWER', Ids: [`r-${Alias}-${Page}`] }] },
+  { BlockType: 'QUERY_RESULT', Id: `r-${Alias}-${Page}`, Page, Text, Confidence },
+];
+
+// Builds a minimal Textract response: LINE blocks plus one answer per query.
+function synthetic(lines: string[], answers: Record<string, [text: string, confidence: number]>): Block[] {
+  const blocks: Block[] = lines.map((Text, i) => ({ BlockType: 'LINE', Id: `l${i}`, Text }));
+  for (const [alias, [text, confidence]] of Object.entries(answers)) blocks.push(...query(alias, text, confidence));
+  return blocks;
+}
+
+describe('fromBlocks (multi-page)', () => {
+  // Shape of the live response for a 3-page contract: the term is on page 2, signatures on page 3.
+  const blocks: Block[] = [
+    ...['SERVICE AGREEMENT', 'BETWEEN Adebayo Foods Limited (the Client)', 'AND CleanPro Limited (the Contractor)'].map(
+      (Text, i): Block => ({ BlockType: 'LINE', Id: `l${i}`, Page: 1, Text }),
+    ),
+    { BlockType: 'LINE', Id: 'l-term', Page: 2, Text: 'This Agreement commences on 01/11/2025 and expires on 31/10/2026,' },
+    ...query('TYPE', 'SERVICE AGREEMENT', 90, 1),
+    ...query('TYPE', 'SIGNATURES', 95, 3),
+    ...query('EXPIRY', '01/11/2025', 45, 1), // a weak wrong guess on page 1
+    ...query('EXPIRY', '31/10/2026', 98, 2),
+  ];
+
+  it('takes the title from the first page and dates from whichever page answers best', () => {
+    const r = fromBlocks(blocks, 'agreement.pdf');
+    assert.equal(r.title, 'Service Agreement');
+    assert.equal(r.documentType, 'Contract');
+    assert.deepEqual(r.parties, ['Adebayo Foods Limited (Client)', 'CleanPro Limited (Contractor)']);
+    assert.equal(date(r, 'expiry')?.isoDate, '2026-10-31');
+  });
+});
+
+describe('fromBlocks (synthetic)', () => {
+  // Layout from a real invoice: labels on one row, two-digit-year values on the next.
+  const lines = ['INVOICE', 'BILL TO:', 'Acme Trading Limited', 'Ada Obi', 'Invoice #:', 'Date:', 'Invoice Due Date:', '01/10/26', '08/10/26'];
+  const answers = {
+    TYPE: ['INVOICE', 81],
+    HOLDER: ['Ada Obi', 40], // Textract's generic answer names the sender
+    FROM: ['Ada Obi', 100],
+    BILL_TO: ['Acme Trading Limited', 98],
+    ISSUE: ['01/10/26', 91],
+    DUE: ['08/10/26', 96],
+  } satisfies Record<string, [string, number]>;
+
+  it('invoice: the due date becomes the date to be reminded about', () => {
+    const r = fromBlocks(synthetic(lines, answers), 'invoice.pdf');
+    assert.equal(r.documentType, 'Invoice');
+    assert.equal(date(r, 'issue')?.isoDate, '2026-10-01');
+    assert.equal(date(r, 'expiry')?.isoDate, '2026-10-08');
+  });
+
+  it('invoice: sender is the issuer and the "Bill to" customer is the party, not the letterhead company', () => {
+    const r = fromBlocks(synthetic(lines, answers), 'invoice.pdf');
+    assert.equal(r.issuer, 'Ada Obi');
+    assert.deepEqual(r.parties, ['Acme Trading Limited']);
+  });
+
+  it('a due date never displaces a real expiry date', () => {
+    const r = fromBlocks(
+      synthetic(['Premium due: 01/12/2025', 'Expires 30/11/2026'], {
+        EXPIRY: ['30/11/2026', 70],
+        DUE: ['01/12/2025', 95],
+      }),
+      'policy.pdf',
+    );
+    assert.equal(date(r, 'expiry')?.isoDate, '2026-11-30');
+  });
+});

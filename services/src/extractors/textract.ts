@@ -7,7 +7,10 @@ import {
   type Block,
   type Query,
 } from '@aws-sdk/client-textract';
-import { tracer } from '../lib/observability.ts';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { s3 } from '../lib/aws.ts';
+import { logger, tracer } from '../lib/observability.ts';
+import { pdfPageCount } from './pdf.ts';
 import { contractParties, documentCategory, evidenceLine, issuerFromHeader, parseDates, parseValidity, tidyCase } from './parse.ts';
 import type { ExtractedDate, ExtractionResult, Extractor } from './types.ts';
 
@@ -25,19 +28,30 @@ const QUERIES = {
   VALID_UNTIL: 'Valid until what date?',
   PERIOD: 'What is the period of insurance or term?',
   VALIDITY: 'How long is this document valid for?',
+  DUE: 'What is the due date or payment deadline?',
+  // Invoices: the generic issuer/holder questions don't know which side of "Bill to" is which.
+  FROM: 'Who is this invoice from?',
+  BILL_TO: 'Who is this invoice billed to?',
 } as const;
 type Alias = keyof typeof QUERIES;
 
 /** Answers below this are ignored entirely. */
 const MIN_CONFIDENCE = 0.4;
-/** Only the first pages are queried: the dates are on the front, and Textract bills per page. */
-const MAX_PAGES = 3;
+/** Only the first pages are queried: Textract bills per page (~$0.015), so this caps the cost of
+ * any one upload while still reaching a contract's term clause or a policy schedule. */
+const MAX_PAGES = 10;
+
+/** Who/what questions are answered by the letterhead, so the earliest page wins. Dates can sit on
+ * any page (a contract's term is often on page 2), so for those the most confident answer wins. */
+const FRONT_PAGE = new Set<Alias>(['TYPE', 'TITLE', 'ISSUER', 'HOLDER', 'FROM', 'BILL_TO']);
 
 interface Answer {
   text: string;
   confidence: number;
+  page: number;
 }
 
+/** Multi-page documents get one QUERY block per page, so answers are merged across pages. */
 function answers(blocks: Block[]): Partial<Record<Alias, Answer>> {
   const byId = new Map(blocks.map((b) => [b.Id!, b]));
   const out: Partial<Record<Alias, Answer>> = {};
@@ -49,9 +63,15 @@ function answers(blocks: Block[]): Partial<Record<Alias, Answer>> {
       .map((id) => byId.get(id))
       .filter((b): b is Block => b?.BlockType === 'QUERY_RESULT' && Boolean(b.Text))
       .sort((a, b) => (b.Confidence ?? 0) - (a.Confidence ?? 0))[0];
-    if (best && (best.Confidence ?? 0) / 100 >= MIN_CONFIDENCE) {
-      out[alias] = { text: best.Text!, confidence: (best.Confidence ?? 0) / 100 };
-    }
+    if (!best || (best.Confidence ?? 0) / 100 < MIN_CONFIDENCE) continue;
+    const answer = { text: best.Text!, confidence: (best.Confidence ?? 0) / 100, page: q.Page ?? 1 };
+    const current = out[alias];
+    const better =
+      !current ||
+      (FRONT_PAGE.has(alias) && answer.page !== current.page
+        ? answer.page < current.page
+        : answer.confidence > current.confidence);
+    if (better) out[alias] = answer;
   }
   return out;
 }
@@ -75,8 +95,16 @@ export function fromBlocks(blocks: Block[], filename: string): ExtractionResult 
 
   // Issuer: Textract often names the holder as the issuer. Then trust the letterhead instead.
   const issuerAnswer = a.ISSUER && !same(a.ISSUER.text, a.HOLDER?.text) && a.ISSUER.confidence >= 0.5 ? a.ISSUER.text : null;
-  const issuer = isContract ? null : issuerAnswer ? tidyCase(issuerAnswer) : issuerFromHeader(lines);
-  const parties = namedParties.length ? namedParties : a.HOLDER ? [tidyCase(a.HOLDER.text)] : [];
+  const isInvoice = documentType === 'Invoice';
+  const issuer = isContract
+    ? null
+    : isInvoice && a.FROM
+      ? tidyCase(a.FROM.text)
+      : issuerAnswer
+        ? tidyCase(issuerAnswer)
+        : issuerFromHeader(lines);
+  const holder = isInvoice ? (a.BILL_TO ?? a.HOLDER) : a.HOLDER;
+  const parties = namedParties.length ? namedParties : holder ? [tidyCase(holder.text)] : [];
 
   const dates: ExtractedDate[] = [];
   const firstDate = (ans?: Answer) => (ans ? parseDates(ans.text)[0] : undefined);
@@ -105,7 +133,11 @@ export function fromBlocks(blocks: Block[], filename: string): ExtractionResult 
     .filter((c): c is { ans: Answer; iso: string } => Boolean(c && c.iso))
     .filter((c) => !start || c.iso > start)
     .sort((x, y) => y.ans.confidence - x.ans.confidence);
-  const expiry = candidates[0];
+  // Invoices and bills have a due date rather than an expiry. Used only when nothing else answered,
+  // so a "premium due" line on a policy can't displace the cover's end date.
+  const dueIso = firstDate(a.DUE);
+  const due = dueIso && (!start || dueIso > start) ? { ans: a.DUE!, iso: dueIso } : undefined;
+  const expiry = candidates[0] ?? due;
   if (expiry) dates.push({ label: 'expiry', isoDate: expiry.iso, evidence: quote(expiry.ans), confidence: expiry.ans.confidence });
 
   const validitySource = [a.VALIDITY, a.VALID_UNTIL, a.PERIOD].find((x) => x && parseValidity(x.text));
@@ -129,19 +161,40 @@ const queriesConfig = (pages?: string[]) => ({
   Queries: Object.entries(QUERIES).map(([Alias, Text]): Query => ({ Alias, Text, ...(pages ? { Pages: pages } : {}) })),
 });
 
-/** Multi-page PDFs need the async API. Polls until done (the Lambda timeout bounds this). */
-async function analyzeAsync(bucket: string, key: string): Promise<Block[]> {
+class PageRangeError extends Error {}
+
+/** Multi-page PDFs need the async API. Textract fails the job if the page range runs past the end
+ * of the document; if our page count was wrong that way, the document is shorter, so read all of it. */
+async function analyzeAsync(bucket: string, key: string, lastPage: number): Promise<Block[]> {
+  try {
+    return await runAnalysisJob(bucket, key, `1-${lastPage}`);
+  } catch (err) {
+    if (!(err instanceof PageRangeError)) throw err;
+    return runAnalysisJob(bucket, key, '*');
+  }
+}
+
+async function countPages(bucket: string, key: string): Promise<number | null> {
+  const object = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return pdfPageCount(await object.Body!.transformToByteArray());
+}
+
+/** Starts an async analysis job and polls until done (the Lambda timeout bounds this). */
+async function runAnalysisJob(bucket: string, key: string, pages: string): Promise<Block[]> {
   const { JobId } = await client.send(
     new StartDocumentAnalysisCommand({
       DocumentLocation: { S3Object: { Bucket: bucket, Name: key } },
       FeatureTypes: ['QUERIES'],
-      QueriesConfig: queriesConfig([`1-${MAX_PAGES}`]),
+      QueriesConfig: queriesConfig([pages]),
     }),
   );
   for (let delay = 1000; ; delay = Math.min(delay * 1.5, 5000)) {
     await new Promise((r) => setTimeout(r, delay));
     const first = await client.send(new GetDocumentAnalysisCommand({ JobId }));
     if (first.JobStatus === 'IN_PROGRESS') continue;
+    if (first.JobStatus === 'FAILED' && first.StatusMessage === 'INVALID_REQUEST_PARAMETER' && pages !== '*') {
+      throw new PageRangeError(`Page range ${pages} rejected`);
+    }
     if (first.JobStatus !== 'SUCCEEDED' && first.JobStatus !== 'PARTIAL_SUCCESS') {
       throw new Error(`Textract job ${first.JobStatus}: ${first.StatusMessage ?? 'no message'}`);
     }
@@ -158,20 +211,29 @@ async function analyzeAsync(bucket: string, key: string): Promise<Block[]> {
 export const textractExtractor: Extractor = {
   name: 'textract',
   async extract(bucket: string, key: string): Promise<ExtractionResult> {
+    const isPdf = key.toLowerCase().endsWith('.pdf');
+    // Counted up front so each document gets the right call; null if the PDF can't be parsed.
+    const pages = isPdf ? await countPages(bucket, key) : 1;
+    logger.info('analyzing document', { pages });
+
     let blocks: Block[];
-    try {
-      const res = await client.send(
-        new AnalyzeDocumentCommand({
-          Document: { S3Object: { Bucket: bucket, Name: key } },
-          FeatureTypes: ['QUERIES'],
-          QueriesConfig: queriesConfig(),
-        }),
-      );
-      blocks = res.Blocks ?? [];
-    } catch (err) {
-      // The sync API only takes single-page PDFs.
-      if (!(err instanceof UnsupportedDocumentException) || !key.toLowerCase().endsWith('.pdf')) throw err;
-      blocks = await analyzeAsync(bucket, key);
+    if (pages !== null && pages > 1) {
+      blocks = await analyzeAsync(bucket, key, Math.min(pages, MAX_PAGES));
+    } else {
+      try {
+        const res = await client.send(
+          new AnalyzeDocumentCommand({
+            Document: { S3Object: { Bucket: bucket, Name: key } },
+            FeatureTypes: ['QUERIES'],
+            QueriesConfig: queriesConfig(),
+          }),
+        );
+        blocks = res.Blocks ?? [];
+      } catch (err) {
+        // The sync API only takes single-page PDFs: Textract knew better than our count.
+        if (!(err instanceof UnsupportedDocumentException) || !isPdf) throw err;
+        blocks = await analyzeAsync(bucket, key, MAX_PAGES);
+      }
     }
     return fromBlocks(blocks, key.split('/').pop() ?? key);
   },

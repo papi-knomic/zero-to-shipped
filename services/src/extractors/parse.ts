@@ -98,6 +98,7 @@ export function documentCategory(text: string): string {
   const t = text.toLowerCase();
   if (/insurance|assurance|\bpolicy\b/.test(t)) return 'Insurance policy';
   if (/tax clearance/.test(t)) return 'Tax clearance certificate';
+  if (/invoice|\bbill\b/.test(t)) return 'Invoice';
   if (/tenancy|lease|agreement|contract/.test(t)) return 'Contract';
   if (/permit/.test(t)) return 'Permit';
   if (/licen[cs]e/.test(t)) return 'Licence';

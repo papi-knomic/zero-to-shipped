@@ -369,3 +369,43 @@ a true 390px width (iframes). Fixes found that way:
 **Problems and fixes:**
 - *A long heredoc with typographic apostrophes broke the shell's quoting.* It failed at parse
   time, so nothing was half-written; the page was written with the editor instead.
+
+## 2026-10-02 — Invoices and multi-page PDFs
+
+**Asked:** Re-probe CloudFront and Bedrock. Why did an uploaded invoice only get its issue date?
+Can multi-page PDFs be handled? What would reading more pages cost?
+
+**Account status:** CloudFront and Bedrock are still blocked. SES is still in the sandbox. Lambda
+concurrency rose from 5 to 40 without action on our side. The Bedrock test on the user's main
+account also returned "Operation not allowed". The agent did not touch that account (CLAUDE.md
+rule); the user ran it.
+
+**Findings and fixes** (each confirmed against live Textract before it was changed):
+- *Invoice due date missing.* No query asked for it. Asked directly, Textract returned it at
+  96%. Fix:
+  - a `DUE` query, used as the reminder date only when there is no expiry, so a "premium due"
+    line on a policy can't displace the end of cover
+  - a new `Invoice` category
+- *Invoice issuer and party swapped.* The generic "who issued this?" got no answer, so the
+  letterhead fallback picked the first company on the page, which was the "Bill to" customer.
+  The invoice-specific "Who is this invoice from?" / "billed to?" answered at 100% / 98%.
+  These answers are used for invoices only.
+- *Multi-page PDFs.* Textract returns one answer per page for each query, and the code kept
+  whichever came last. A live 3-page contract came back titled "Signatures" (page 3), so it
+  wasn't recognised as a contract. Fix: who/what questions take the earliest page that answers
+  (letterhead); date questions take the most confident answer from any page.
+- *Page limit 3 → 10.* At ~$0.015 per page, the worst case per upload is $0.15. Testing found
+  that Textract **fails the job** when the page range runs past the end of the document. So the
+  old "1-3" broke every 2-page PDF. A first fix ("try 1–10, on rejection read all pages") cost
+  2–9 page PDFs three Textract calls. At the user's prompting, page counting moved up front:
+  - **pdf-lib** reads the page tree; a regex can't, because most PDFs keep page objects in
+    compressed streams, and a test proves that
+  - one page goes to the sync API, more pages go to one async job for exactly `1-min(pages, 10)`
+  - the old path remains only for PDFs the parser can't read
+  - cost: +0.5 MB on the extraction bundle
+
+**Verified live:** the 3-page contract now extracts as a Contract, titled "Service Agreement",
+with both parties, effective and expiry from page 2; the logs show `pages: 3`. A 1-page sample
+logs `pages: 1` and extracts exactly as before. 43 tests pass, including synthetic invoice,
+multi-page and compressed-PDF page-count cases. The user's real invoice was used for testing but not committed,
+because it contains bank details.

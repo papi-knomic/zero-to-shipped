@@ -4,6 +4,7 @@ dist/
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 *.zip
 .env*
 !.env.example
