@@ -69,8 +69,8 @@ has a fallback that's in the code:
 |---|---|
 | CloudFront blocked pending verification | The site is served by a Lambda on the same HTTP API, with an ACM certificate on a regional custom domain. `enable_cloudfront = true` moves it to S3 + CloudFront. |
 | Bedrock blocked | Textract Queries + parsing in code (`EXTRACTOR=textract`) |
-| SES in sandbox | One-click recipient verification and an in-app reminder feed. Production access is requested. |
-| Lambda concurrency limit of 5 | SQS buffer capping extraction at 2; client retries throttled (503/429) calls with backoff; one-at-a-time sample uploads. A quota increase is requested. |
+| SES in sandbox (production access declined for the new account) | One-click recipient verification and an in-app reminder feed. |
+| Lambda concurrency limit of 5 (since raised to 40) | SQS buffer capping extraction at 2; client retries throttled (503/429) calls with backoff; one-at-a-time sample uploads. |
 
 ### Email
 
