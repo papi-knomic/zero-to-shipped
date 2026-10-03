@@ -4,7 +4,8 @@ import { AlreadyExistsException, CreateEmailIdentityCommand } from '@aws-sdk/cli
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, requireEnv, ses } from '../lib/aws.ts';
 import { workspacePk } from '../lib/documents.ts';
-import { HttpError, apiHandler, getWorkspaceId, json, parseJsonBody } from '../lib/http.ts';
+import { HttpError, apiHandler, json, parseJsonBody } from '../lib/http.ts';
+import { demoExpiresAt, getCaller } from '../lib/session.ts';
 import { logger, metrics } from '../lib/observability.ts';
 import { isEmail } from '../lib/reminders.ts';
 import { recipientStatus } from '../lib/ses-identity.ts';
@@ -18,7 +19,7 @@ const MAX_VERIFICATIONS_PER_WORKSPACE = 3;
  * link; once clicked, reminders can be delivered to it. A no-op with production access.
  */
 export const handler = apiHandler(async (event) => {
-  const workspaceId = getWorkspaceId(event);
+  const { workspaceId } = await getCaller(event);
   const { email: raw } = (parseJsonBody(event) ?? {}) as { email?: unknown };
   const email = typeof raw === 'string' ? raw.trim().toLowerCase() : raw;
   if (!isEmail(email)) throw new HttpError(400, 'email must be a valid email address');
@@ -29,14 +30,15 @@ export const handler = apiHandler(async (event) => {
     return json(200, { email, ...current, message: 'A verification email was already sent. Check your inbox and spam folder.' });
   }
 
+  const expiresAt = demoExpiresAt(workspaceId);
   try {
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE_NAME,
         Key: { PK: workspacePk(workspaceId), SK: 'LIMIT#EMAIL_VERIFY' },
-        UpdateExpression: 'ADD verifyCount :one',
+        UpdateExpression: `ADD verifyCount :one${expiresAt ? ' SET expiresAt = if_not_exists(expiresAt, :exp)' : ''}`,
         ConditionExpression: 'attribute_not_exists(verifyCount) OR verifyCount < :max',
-        ExpressionAttributeValues: { ':one': 1, ':max': MAX_VERIFICATIONS_PER_WORKSPACE },
+        ExpressionAttributeValues: { ':one': 1, ':max': MAX_VERIFICATIONS_PER_WORKSPACE, ...(expiresAt ? { ':exp': expiresAt } : {}) },
       }),
     );
   } catch (err) {

@@ -13,8 +13,9 @@ import {
   type AllowedContentType,
   type DocumentItem,
 } from '../lib/documents.ts';
-import { HttpError, apiHandler, getWorkspaceId, json, parseJsonBody } from '../lib/http.ts';
+import { HttpError, apiHandler, json, parseJsonBody } from '../lib/http.ts';
 import { logger } from '../lib/observability.ts';
+import { demoExpiresAt, getCaller } from '../lib/session.ts';
 
 const TABLE_NAME = requireEnv('TABLE_NAME');
 const UPLOAD_BUCKET = requireEnv('UPLOAD_BUCKET');
@@ -42,12 +43,13 @@ function validate(body: unknown): CreateUploadRequest {
 
 /** POST /api/uploads → creates the document record and returns a presigned S3 PUT URL. */
 export const handler = apiHandler(async (event) => {
-  const workspaceId = getWorkspaceId(event);
+  const { workspaceId } = await getCaller(event);
   const req = validate(parseJsonBody(event));
 
   const docId = randomUUID();
   const now = new Date().toISOString();
-  const item: DocumentItem = {
+  const expiresAt = demoExpiresAt(workspaceId);
+  const item: DocumentItem & { expiresAt?: number } = {
     PK: workspacePk(workspaceId),
     SK: documentSk(docId),
     workspaceId,
@@ -59,6 +61,7 @@ export const handler = apiHandler(async (event) => {
     status: 'UPLOADING',
     createdAt: now,
     updatedAt: now,
+    ...(expiresAt ? { expiresAt } : {}),
   };
 
   await ddb.send(

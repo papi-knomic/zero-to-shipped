@@ -30,6 +30,12 @@ resource "aws_dynamodb_table" "this" {
   point_in_time_recovery {
     enabled = true
   }
+
+  # Demo-workspace items carry expiresAt (epoch seconds); DynamoDB deletes them after it passes.
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = true
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -109,6 +115,20 @@ resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 1
+    }
+  }
+
+  # The no-login demo keeps files under ws/demo-<id>/; they're deleted with the demo's records.
+  rule {
+    id     = "expire-demo-uploads"
+    status = "Enabled"
+
+    filter {
+      prefix = "ws/demo-"
+    }
+
+    expiration {
+      days = 7
     }
   }
 }

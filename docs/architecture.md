@@ -62,13 +62,36 @@ flowchart LR
    suppression) and always records the reminder in the in-app feed. In the SES sandbox,
    unverified recipients see it in-app only.
 
+## Accounts and sessions
+
+- **Cognito user pool:** email + password, plus the user's name. The `auth` Lambda is the only
+  Cognito client, and it holds the app client's secret (from SSM).
+- **Session cookies:** sign-in sets HttpOnly, Secure, SameSite=Lax cookies:
+  - `lapse_id`: the ID token, 1 hour, sent to `/api`
+  - `lapse_rt` and `lapse_uid`: the refresh token and Cognito username, 30 days, sent only to
+    `/api/auth`
+- **Verification:** every route verifies `lapse_id` itself (`aws-jwt-verify`; API Gateway's JWT
+  authorizer can't read cookies).
+- **Workspace:** the workspace is the user's `sub`.
+- **The demo:** sends `x-workspace-id: <uuid>`, and the server maps it to `demo-<uuid>`, so it can
+  never address a real workspace. Demo items carry `expiresAt` (DynamoDB TTL), and S3 expires
+  `ws/demo-*` after 7 days.
+- **Moving demo documents:** `claim-demo` moves a demo workspace's documents into the account:
+  - writes the record first, then copies the file. The extractor only processes documents still
+    in `UPLOADING`/`PROCESSING`, so it ignores the copy.
+  - re-points future reminder schedules at the account
+  - deletes the demo copies
+
 ## Data model (DynamoDB, on-demand)
 
 | PK | SK | Item |
 |---|---|---|
+| `WS#<workspaceId>` | `META` | workspace owner (user sub, email, name) and creation time |
 | `WS#<workspaceId>` | `DOC#<docId>` | document: file, status, extraction, confirmed fields, reminder email, schedule names |
 | `WS#<workspaceId>` | `NOTIF#<sentAt>#<docId>` | one sent reminder and its email outcome |
 | `WS#<workspaceId>` | `LIMIT#EMAIL_VERIFY` | per-workspace cap on SES verification emails |
+
+`workspaceId` is a Cognito `sub`, or `demo-<uuid>` for the demo, whose items also carry `expiresAt`.
 
 ## Security
 
@@ -76,6 +99,7 @@ flowchart LR
   delete schedules in group `lapse` and pass the single Scheduler role.
 - Buckets block all public access and deny non-TLS requests. Uploads are presigned and scoped
   to `ws/<workspaceId>/`.
+- Request bodies must be JSON. Together with SameSite cookies, this rules out cross-site form posts.
 - The site sends CSP, HSTS, `X-Frame-Options: DENY` and `nosniff`. The API is throttled
   (burst 50, 20 req/s).
 
@@ -85,5 +109,6 @@ flowchart LR
   `enable_cloudfront = true` switches to S3 + CloudFront with the same certificate.
 - **Bedrock** is blocked, so Textract is the extractor (`EXTRACTOR=textract`).
 - **SES** is in the sandbox, which is why recipient verification and the in-app feed exist.
-- **Lambda concurrency** is 5, with an increase to 1,000 requested. The SQS buffer keeps the
-  API responsive in the meantime.
+- **Lambda concurrency** started at 5 and has since been raised to 40. The SQS buffer keeps the
+  API responsive under bursts.
+- **Cognito** sends its own verification emails (50 a day) while SES is in the sandbox.

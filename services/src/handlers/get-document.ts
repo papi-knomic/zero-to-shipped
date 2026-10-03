@@ -1,13 +1,14 @@
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, requireEnv } from '../lib/aws.ts';
 import { documentSk, toRecord, workspacePk, type DocumentItem } from '../lib/documents.ts';
-import { HttpError, apiHandler, getWorkspaceId, isUuid, json } from '../lib/http.ts';
+import { HttpError, apiHandler, isUuid, json } from '../lib/http.ts';
+import { getCaller } from '../lib/session.ts';
 
 const TABLE_NAME = requireEnv('TABLE_NAME');
 
 /** GET /api/documents/{id} → one document, scoped to the caller's workspace. */
 export const handler = apiHandler(async (event) => {
-  const workspaceId = getWorkspaceId(event);
+  const { workspaceId } = await getCaller(event);
   const docId = event.pathParameters?.id;
   if (!isUuid(docId)) throw new HttpError(400, 'Invalid document id');
 

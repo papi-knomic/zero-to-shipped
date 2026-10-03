@@ -1,16 +1,16 @@
 # Lapse — never miss a renewal
 
-**Live:** https://lapse.reck-tech.com · **Demo:** https://lapse.reck-tech.com/app (no sign-up)
+**Live:** https://lapse.reck-tech.com · **Demo:** https://lapse.reck-tech.com/demo (no account needed)
 
 Small businesses hold a dozen documents that quietly expire: tax clearance, fire safety
 certificates, insurance policies, premises permits, leases. Lapse reads each document, finds its
 dates, lets you confirm them, and emails reminders **60, 30 and 7 days** before anything expires.
 
-Built for the AWS **Zero to Shipped** hackathon.
+A Reck Tech Ltd product. It started as an entry for the AWS **Zero to Shipped** hackathon.
 
 ## Try it in two minutes
 
-1. Open the [demo](https://lapse.reck-tech.com/app) and press **Load sample documents**. Five
+1. Open the [demo](https://lapse.reck-tech.com/demo) and press **Load sample documents**. Five
    realistic Nigerian business documents go through the real pipeline and Amazon Textract reads
    them. Two are confirmed automatically so you see a mix of statuses.
 2. Open one marked **Needs review**. Each date shows the line it was read from and a confidence
@@ -18,6 +18,24 @@ Built for the AWS **Zero to Shipped** hackathon.
 3. Confirm it with your email address. Lapse schedules the 60/30/7-day reminders.
 4. Press **Send test reminder**. About two minutes later it appears in **Reminder activity**, and
    in your inbox once your address is verified (see *Email* below).
+5. Like it? **Create a free account**. After you sign in, Lapse offers to move the demo's
+   documents (files, reviewed details, reminders) into your account. Demo data is otherwise
+   deleted after 7 days.
+
+## Accounts
+
+- **Sign-up:** name, email and password, with Amazon Cognito. Cognito emails a 6-digit code to
+  confirm the address. Only the API's `auth` Lambda talks to Cognito, using the app client's
+  secret from SSM Parameter Store.
+- **Sessions:** HttpOnly, Secure, SameSite=Lax cookies.
+  - an ID token (1 hour), which every route verifies itself with `aws-jwt-verify`
+  - a refresh token (30 days, scoped to `/api/auth`), revoked on sign-out
+- **Workspaces:** a user's workspace ID is their Cognito `sub`.
+- **The demo:** sends a browser-generated UUID in `x-workspace-id`, which the server always maps to
+  `demo-<uuid>`. A demo ID can never name a real workspace. Demo items carry a DynamoDB TTL, and
+  an S3 lifecycle rule expires `ws/demo-*` after 7 days.
+- **Collected:** name, email and the password (hashed by Cognito, never stored or logged by Lapse).
+  No phone number, IP address or analytics.
 
 ## How it works
 
@@ -55,10 +73,17 @@ Details: [docs/architecture.md](docs/architecture.md) (diagram, flows, data mode
   dashboard covering documents, extraction latency, reminders, API, Lambda, queue and SES; alarms
   on API 5xx, Lambda errors and throttles, extraction failures and the dead-letter queue, routed
   to SNS.
-- **Tested.** 36 unit tests (`npm test` in `services/`), including the Textract mapping run
-  against real Textract responses for the five sample documents.
-- **Security.** Private buckets with TLS-only policies; CSP, HSTS and frame-deny headers; API
-  throttling; a cap on sandbox verification emails per workspace.
+- **Passports and ID cards.** The expiry date is read from the machine-readable zone (ICAO 9303)
+  and verified by its check digit. The passport number and date of birth are never stored.
+- **Tested.** 59 unit tests (`npm test` in `services/`), including the Textract mapping run
+  against real Textract responses for the five sample documents, plus session and demo-isolation
+  cases.
+- **Security.**
+  - private buckets with TLS-only policies
+  - CSP, HSTS and frame-deny headers
+  - JSON-only request bodies, which with SameSite cookies blocks cross-site form posts
+  - API throttling
+  - a cap on sandbox verification emails per workspace
 
 ### Working around a brand-new AWS account
 
@@ -80,13 +105,19 @@ click). Every reminder also appears in **Reminder activity**, delivered or not.
 
 ## API
 
-All routes take an `x-workspace-id` header: a UUID the browser generates and keeps in
-localStorage (demo mode, no login).
+Document routes act on the signed-in user's workspace (session cookie). With an
+`x-workspace-id: <uuid>` header they act on that browser's demo workspace instead. A 401 carries
+`code: "session_expired"` or `"unauthenticated"`, and the browser refreshes once before
+sending the user to sign in.
 
 | Route | Purpose |
 |---|---|
+| `POST /api/auth/{signup,confirm,resend-code,signin,refresh,signout,forgot-password,reset-password}` · `GET /api/auth/me` | Accounts (Cognito); session cookies are set and cleared here |
+| `POST /api/workspace/claim-demo` | `{demoWorkspaceId}` → move a demo workspace's documents into the account |
 | `POST /api/uploads` | `{filename, contentType, size}` → document + presigned PUT URL (PDF/PNG/JPEG, ≤ 10 MB) |
 | `GET /api/documents` · `GET /api/documents/{id}` | Documents with extraction, confirmed fields and reminders |
+| `GET /api/documents/{id}/file` | Five-minute signed link to view the original upload (inline) |
+| `DELETE /api/documents/{id}` | Delete a document: reminders, file, reminder history and record |
 | `PUT /api/documents/{id}/confirm` | Save reviewed fields and (re)schedule reminders; `reminderEmail: null` stops them |
 | `POST /api/documents/{id}/test-reminder` | Demo: one reminder two minutes from now |
 | `GET /api/notifications` | In-app reminder feed |
@@ -98,12 +129,12 @@ localStorage (demo mode, no login).
 ```
 bootstrap/   Terraform state bucket (local state, apply once)
 infra/       App infrastructure
-  modules/   lambda (shared) · api · storage · extraction · reminders · observability · domain · frontend
+  modules/   lambda (shared) · auth · api · storage · extraction · reminders · observability · domain · frontend
 services/    Lambda code (TypeScript, esbuild)
   src/handlers/    one file per Lambda
   src/extractors/  Textract (+ parsing), mock, expiry normalisation
   src/lib/         HTTP, AWS clients, observability, dates, reminders, email
-web/         Vite + React + TypeScript: static landing page (index.html) + demo app (app.html)
+web/         Vite + React + TypeScript: static landing page (index.html) + app (app.html: sign-in, documents, demo)
 scripts/     deploy.ps1 · make-samples.mjs
 docs/        architecture.md · agent-log.md (how this was built with an AI coding agent)
 ```

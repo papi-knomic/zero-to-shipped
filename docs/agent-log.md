@@ -409,3 +409,106 @@ with both parties, effective and expiry from page 2; the logs show `pages: 3`. A
 logs `pages: 1` and extracts exactly as before. 43 tests pass, including synthetic invoice,
 multi-page and compressed-PDF page-count cases. The user's real invoice was used for testing but not committed,
 because it contains bank details.
+
+## 2026-10-03 — From hackathon entry to product: accounts (phase 1)
+
+**Context:** The hackathon submission was missed (the user was ill over the deadline). Lapse
+continues as a Reck Tech Ltd product for Nigerian businesses. Decisions:
+- stay all-AWS and wait for CloudFront
+- Paystack for billing, later
+- Nigeria Data Protection Act obligations noted, for a lawyer or DPCO to confirm
+
+**Asked:** Build sign-in. The user chose email + password plus Google, with Google as phase 2.
+They also chose to keep the no-login demo, auto-deleted after 7 days. Mid-build requests:
+- move demo documents into the account on sign-up
+- collect the user's name. One full-name field, after discussing first/last: Nigerian names
+  don't split cleanly, and nothing downstream needs the split.
+- drop the architecture section from the landing page in favour of a truthful security section
+
+**Built:**
+- **Cognito** (`infra/modules/auth`):
+  - user pool on the Essentials tier with deletion protection, email username, 10-character
+    passwords, user-existence errors prevented, and Cognito's own email sender (SES is still
+    in the sandbox)
+  - a confidential app client whose secret lives in SSM
+- **`auth` Lambda** (`/api/auth/{action}`): sign up, confirm, resend, sign in, refresh, sign
+  out (revokes the refresh token), forgot and reset password, me.
+  - Sessions are HttpOnly, Secure, SameSite=Lax cookies: the ID token (1 h, `/api`), plus the
+    refresh token and username (30 d, `/api/auth`).
+  - A user's workspace is their `sub`. A workspace META record is written on first sign-in.
+    This is simpler than the planned custom attribute, with the same guarantees.
+- **`session.ts`:** every route verifies the cookie itself (`aws-jwt-verify`). The demo
+  header maps to `demo-<uuid>` and can never name a real workspace. 401s carry
+  `session_expired` / `unauthenticated`, and the browser refreshes once, then goes to sign-in.
+- **Demo expiry:** DynamoDB TTL on `expiresAt`, plus an S3 lifecycle rule on `ws/demo-`
+  (7 days).
+- **`claim-demo` Lambda:** writes the account record, copies the file, re-points future
+  reminder schedules, then deletes the demo copies. The extractor now only processes
+  documents still in UPLOADING/PROCESSING, so the copy's S3 event can't re-extract (and
+  duplicate events can't either).
+- **Web:**
+  - sign-in, sign-up (with name and code step) and reset pages
+  - account menu in the header
+  - demo banner, and the move-your-demo-documents offer
+  - samples in the demo only
+  - the reminder email pre-filled with the account email
+- **Landing page:** Get started / Try the demo / Sign in. Architecture is replaced by
+  "Your documents are safe", which claims only what is true today.
+- **Docs:** CLAUDE.md, README and architecture.md updated.
+
+**Problems and fixes:**
+- *Bundled AWS SDK errors all matched each other under `instanceof`.* The first live run
+  failed 3 of 28 checks: a wrong password said "account already exists". The cause: the SDK
+  implements `instanceof` by comparing class names, and esbuild's minifier renamed every class
+  to `t`. This had been silently affecting older code too:
+  - the extractor's "document missing" check
+  - Textract's multi-page fallback
+  - Scheduler's "already exists" path
+
+  Reproduced with a minimal bundle and fixed with esbuild `keepNames: true`.
+- *A redirect loop risk:* an expired session on a sign-in page could redirect to itself.
+  Guarded.
+
+**Verified live:** a throwaway `example.com` account went through the real API, confirmed via
+admin API rather than email. 29/29 checks passed:
+- sign-up validation (password, name), unconfirmed sign-in, wrong code, wrong password
+- cookie flags and paths, me (with name)
+- upload into `ws/<sub>/`
+- a demo header carrying the user's sub reads nothing; form posts are rejected
+- demo upload, confirm with 3 reminders, then claim: moved, still ACTIVE, file and schedules
+  re-pointed, no expiry
+- refresh after the ID token is dropped, sign-out, and the revoked refresh token refused
+
+The test account and all its data were deleted afterwards.
+
+## 2026-10-03 — Passports, view original, delete
+
+**Asked:** The user's international passport extracted nothing. They also asked to view the
+original file and to delete a document.
+
+**Found (from logs and metadata only, not the passport's contents):** the passport finished as
+"Document" with 0 dates. Two causes: passports label dates bilingually ("Date of expiry / Date
+d'expiration"), and print them as `13 MAR /MARS 31` (month name, French alternative, 2-digit
+year), which the parser didn't handle.
+
+**Built:**
+- `extractors/mrz.ts`: reads the machine-readable zone (ICAO 9303; TD3 passports, TD1 ID
+  cards) and verifies the expiry by its 7-3-1 check digit, so a misread digit is rejected.
+  - **Returned:** issuing state, holder name and expiry.
+  - **Never returned:** date of birth and document number, enforced by a test.
+  - **Evidence:** quotes the printed expiry line when it agrees, otherwise "Machine-readable
+    zone: …". The MRZ line itself is never quoted.
+- The parser now handles bilingual month names with 2- or 4-digit years.
+- The `Passport` category.
+- `document-file` Lambda: a five-minute signed inline link to the original (`s3:GetObject`
+  only). The web app opens the tab synchronously so popup blockers allow it.
+- `delete-document` Lambda: deletes reminder schedules first (so none fire), then the file, the
+  document's reminder history and the record. Delete-only permissions. Web: **Delete
+  document** with a confirm.
+
+**Problems and fixes:** the first test run failed 3 of 59 because of my test data: a 45-character
+MRZ line, and treating OCR's `«` as one `<` (it stands for two). Both fixed.
+
+**Verified live (demo workspace):** the view link serves the original byte-for-byte as an inline
+PDF, and another workspace gets 404. After deletion the record returns 404, the old link no
+longer serves the file, and a second delete returns 404.

@@ -10,7 +10,8 @@ import {
   type DocumentItem,
   type ScheduledReminder,
 } from '../lib/documents.ts';
-import { HttpError, apiHandler, getWorkspaceId, isUuid, json, parseJsonBody } from '../lib/http.ts';
+import { HttpError, apiHandler, isUuid, json, parseJsonBody } from '../lib/http.ts';
+import { getCaller } from '../lib/session.ts';
 import { logger, metrics } from '../lib/observability.ts';
 import { isEmail, reminderTimes, scheduleName } from '../lib/reminders.ts';
 import { createReminderSchedule, deleteReminderSchedule } from '../lib/schedules.ts';
@@ -71,7 +72,7 @@ function validate(body: unknown): ConfirmRequest {
  * Existing schedules are always replaced, so editing the expiry date moves every reminder.
  */
 export const handler = apiHandler(async (event) => {
-  const workspaceId = getWorkspaceId(event);
+  const { workspaceId } = await getCaller(event);
   const docId = event.pathParameters?.id;
   if (!isUuid(docId)) throw new HttpError(400, 'Invalid document id');
   const req = validate(parseJsonBody(event));

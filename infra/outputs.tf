@@ -36,6 +36,10 @@ output "custom_domain_target" {
   value       = one(module.domain[*].target_domain_name)
 }
 
+output "user_pool_id" {
+  value = module.auth.user_pool_id
+}
+
 output "dashboard_url" {
   value = module.observability.dashboard_url
 }

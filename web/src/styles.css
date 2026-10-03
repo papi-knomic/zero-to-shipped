@@ -1613,6 +1613,170 @@ code {
   }
 }
 
+/* ==========================================================================
+   Accounts: sign-in card, nav account, workspace banners
+   ========================================================================== */
+
+.nav-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.account {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.account-email {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--muted);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boot {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+
+.auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 56px 0 24px;
+}
+
+.auth-brand {
+  margin-bottom: 28px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 32px 26px;
+  box-shadow: var(--shadow-lift);
+}
+
+.auth-card h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 2.3rem;
+  line-height: 1.05;
+  margin: 0 0 8px;
+}
+
+.auth-lede {
+  margin: 0 0 22px;
+}
+
+.auth-for {
+  margin: -12px 0 18px;
+}
+
+.auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.code-input {
+  font-family: var(--mono) !important;
+  font-size: 1.4rem !important;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 13px 18px;
+  font-size: 0.98rem;
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--rule-strong);
+  color: var(--muted);
+}
+
+.auth-links a,
+.auth-demo a {
+  color: var(--brand);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.auth-demo {
+  margin-top: 22px;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.banner > span:first-of-type {
+  flex: 1 1 260px;
+}
+
+.banner svg {
+  flex: none;
+}
+
+.banner-demo {
+  background: var(--highlight-soft);
+}
+
+.banner-claim {
+  background: var(--brand-soft);
+}
+
+.banner-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.empty-account {
+  margin: 0 0 12px;
+}
+
+.view-original {
+  margin-top: 12px;
+}
+
+.danger-zone {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--rule-strong);
+}
+
+.danger-zone .link-danger {
+  margin-top: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1731,5 +1895,18 @@ code {
 
   .section-head {
     flex-wrap: wrap;
+  }
+
+  .conn,
+  .account-email {
+    display: none;
+  }
+
+  .auth {
+    padding-top: 32px;
+  }
+
+  .auth-card {
+    padding: 26px 20px 22px;
   }
 }

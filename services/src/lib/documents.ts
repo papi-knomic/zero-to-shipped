@@ -84,7 +84,8 @@ export function documentS3Key(workspaceId: string, docId: string, filename: stri
   return `ws/${workspaceId}/${docId}/${safe}`;
 }
 
-const S3_KEY = /^ws\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/(.+)$/;
+// Workspace IDs are a user's Cognito sub, or demo-<uuid> for the no-login demo.
+const S3_KEY = /^ws\/((?:demo-)?[0-9a-f-]{36})\/([0-9a-f-]{36})\/(.+)$/;
 
 export function parseDocumentS3Key(key: string): { workspaceId: string; docId: string; filename: string } | null {
   const match = S3_KEY.exec(key);

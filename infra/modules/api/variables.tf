@@ -50,3 +50,19 @@ variable "reminder_function_arn" {
 variable "scheduler_role_arn" {
   type = string
 }
+
+variable "user_pool_id" {
+  type = string
+}
+
+variable "user_pool_client_id" {
+  type = string
+}
+
+variable "client_secret_parameter_name" {
+  type = string
+}
+
+variable "client_secret_parameter_arn" {
+  type = string
+}

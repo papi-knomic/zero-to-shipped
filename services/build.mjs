@@ -19,6 +19,9 @@ await Promise.all(
       target: 'node22',
       format: 'esm',
       minify: true,
+      // AWS SDK errors implement instanceof by comparing class names. Minified, every class is
+      // renamed to the same short name and any SDK error matches any error class.
+      keepNames: true,
       sourcemap: true,
       // The AWS SDK is bundled rather than taken from the runtime, so package-lock pins its version.
       // The banner lets bundled CJS deps call require() inside an ESM bundle.

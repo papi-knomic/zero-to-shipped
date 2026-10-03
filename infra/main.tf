@@ -35,8 +35,19 @@ module "storage" {
   cors_origins = concat(local.app_origins, local.web_origins, var.dev_origins)
 }
 
+module "auth" {
+  source = "./modules/auth"
+
+  name = local.name
+}
+
 module "api" {
   source = "./modules/api"
+
+  user_pool_id                 = module.auth.user_pool_id
+  user_pool_client_id          = module.auth.client_id
+  client_secret_parameter_name = module.auth.client_secret_parameter_name
+  client_secret_parameter_arn  = module.auth.client_secret_parameter_arn
 
   name                = local.name
   allowed_origins     = local.app_origins

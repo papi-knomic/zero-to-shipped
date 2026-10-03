@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, api } from '../lib/api';
 import { docTitle, docUrgency, formatBytes, formatDate, isInFlight } from '../lib/format';
-import { APP_HOME, linkHandler } from '../lib/router';
+import { APP_HOME, linkHandler, navigate } from '../lib/router';
 import type { DocumentRecord, ExtractedDate } from '../lib/types';
 import { Icon } from './Icon';
 import { RemindersCard } from './RemindersCard';
@@ -26,6 +26,8 @@ export function DocumentDetail({ id }: { id: string }) {
   const [doc, setDoc] = useState<DocumentRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState<'view' | 'delete' | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -95,6 +97,41 @@ export function DocumentDetail({ id }: { id: string }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  async function viewOriginal() {
+    // Open the tab now, while the click still counts as a user action; popup blockers stop a
+    // window opened after the await.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
+    setBusy('view');
+    setActionError(null);
+    try {
+      const url = await api.documentFileUrl(doc!.docId);
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch (err) {
+      tab?.close();
+      setActionError(err instanceof ApiError ? err.message : 'Could not open the file.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove() {
+    const message = doc!.reminders?.length
+      ? 'Delete this document? Its file, details and scheduled reminders are removed for good.'
+      : 'Delete this document? Its file and details are removed for good.';
+    if (!window.confirm(message)) return;
+    setBusy('delete');
+    setActionError(null);
+    try {
+      await api.deleteDocument(doc!.docId);
+      navigate(APP_HOME);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not delete the document.');
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="detail">
       {back}
@@ -109,9 +146,22 @@ export function DocumentDetail({ id }: { id: string }) {
           <p className="muted small">
             {doc.filename} · {formatBytes(doc.size)} · uploaded {formatDate(doc.createdAt)}
           </p>
+          {doc.status !== 'UPLOADING' && (
+            <button type="button" className="btn btn-ghost btn-sm view-original" onClick={viewOriginal} disabled={busy !== null}>
+              {busy === 'view' ? <span className="spinner spinner-sm" /> : <Icon name="eye" size={15} />}
+              View original
+            </button>
+          )}
         </div>
         <StatusBadge status={doc.status} />
       </header>
+
+      {actionError && (
+        <p className="notice notice-error">
+          <Icon name="alert" size={16} />
+          {actionError}
+        </p>
+      )}
 
       {doc.status === 'FAILED' && (
         <p className="notice notice-error">
@@ -209,6 +259,13 @@ export function DocumentDetail({ id }: { id: string }) {
           <p className="muted small footnote">Extracted by the {x.extractor} extractor.</p>
         </>
       )}
+
+      <div className="danger-zone">
+        <button type="button" className="link-button link-danger" onClick={remove} disabled={busy !== null}>
+          {busy === 'delete' ? 'Deleting…' : 'Delete document'}
+        </button>
+        <span className="muted small">Removes the file, its details, reminders and reminder history.</span>
+      </div>
     </div>
   );
 }

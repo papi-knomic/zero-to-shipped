@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ApiError, api } from '../lib/api';
+import { useSession } from '../lib/session';
 import type { ConfirmedFields, DocumentRecord } from '../lib/types';
 import { EmailDeliverability } from './EmailDeliverability';
 import { Icon } from './Icon';
@@ -38,7 +39,10 @@ interface Props {
 export function ReviewForm({ doc, onSaved, onCancel }: Props) {
   const [fields, setFields] = useState<ConfirmedFields>(() => initialFields(doc));
   const [partiesText, setPartiesText] = useState(() => initialFields(doc).parties.join('\n'));
-  const [email, setEmail] = useState(() => doc.reminderEmail ?? rememberedEmail());
+  const session = useSession();
+  const [email, setEmail] = useState(
+    () => doc.reminderEmail ?? (rememberedEmail() || (session.mode === 'user' ? session.user.email : '')),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

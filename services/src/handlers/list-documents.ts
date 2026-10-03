@@ -1,13 +1,14 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, requireEnv } from '../lib/aws.ts';
 import { DOCUMENT_SK_PREFIX, toRecord, workspacePk, type DocumentItem } from '../lib/documents.ts';
-import { apiHandler, getWorkspaceId, json } from '../lib/http.ts';
+import { apiHandler, json } from '../lib/http.ts';
+import { getCaller } from '../lib/session.ts';
 
 const TABLE_NAME = requireEnv('TABLE_NAME');
 
 /** GET /api/documents → all documents in the workspace, newest first. */
 export const handler = apiHandler(async (event) => {
-  const workspaceId = getWorkspaceId(event);
+  const { workspaceId } = await getCaller(event);
 
   const items: DocumentItem[] = [];
   let cursor: Record<string, unknown> | undefined;

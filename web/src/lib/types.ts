@@ -78,6 +78,12 @@ export interface RecipientStatus {
   message?: string;
 }
 
+export interface User {
+  userId: string;
+  email: string;
+  name: string;
+}
+
 export const REMINDER_OFFSETS = [60, 30, 7] as const;
 
 export const ACCEPTED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];

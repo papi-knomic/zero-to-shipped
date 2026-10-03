@@ -26,9 +26,12 @@ const PATTERNS: { re: RegExp; toIso: (m: RegExpExecArray) => string | null }[] =
       return b > 12 && a <= 12 ? iso(y, a, b) : iso(y, b, a);
     },
   },
-  // 5th October, 2025 · 5 Oct 2025 · 5th day of October 2025
+  // 5th October, 2025 · 5 Oct 2025 · 5th day of October 2025 · passports: 14 MAR /MARS 31
   {
-    re: new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+day)?(?:\\s+of)?\\s+${MONTH}\\.?,?\\s+(\\d{4})\\b`, 'gi'),
+    re: new RegExp(
+      `\\b(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+day)?(?:\\s+of)?\\s+${MONTH}\\.?(?:\\s*/\\s*[A-Za-zÀ-ÿ]{3,9}\\.?)?,?\\s+(\\d{4}|\\d{2})\\b`,
+      'gi',
+    ),
     toIso: (m) => iso(+m[3]!, MONTHS[m[2]!.slice(0, 3).toLowerCase()]!, +m[1]!),
   },
   // October 5, 2025
@@ -96,6 +99,7 @@ export function tidyCase(text: string): string {
 /** A short category for the document, from its type/title text. */
 export function documentCategory(text: string): string {
   const t = text.toLowerCase();
+  if (/passport/.test(t)) return 'Passport';
   if (/insurance|assurance|\bpolicy\b/.test(t)) return 'Insurance policy';
   if (/tax clearance/.test(t)) return 'Tax clearance certificate';
   if (/invoice|\bbill\b/.test(t)) return 'Invoice';

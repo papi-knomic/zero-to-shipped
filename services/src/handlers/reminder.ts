@@ -13,6 +13,7 @@ import {
 import { renderReminderEmail } from '../lib/email.ts';
 import { instrument, logger, metrics } from '../lib/observability.ts';
 import { daysUntil } from '../lib/reminders.ts';
+import { demoExpiresAt, isDemoWorkspace } from '../lib/session.ts';
 
 const TABLE_NAME = requireEnv('TABLE_NAME');
 const FROM_ADDRESS = requireEnv('FROM_ADDRESS');
@@ -95,7 +96,12 @@ export const handler = instrument(async (event: ReminderEvent) => {
   await ddb.send(
     new PutCommand({
       TableName: TABLE_NAME,
-      Item: { PK: workspacePk(workspaceId), SK: notificationSk(sentAt, docId), ...notification },
+      Item: {
+        PK: workspacePk(workspaceId),
+        SK: notificationSk(sentAt, docId),
+        ...notification,
+        ...(isDemoWorkspace(workspaceId) ? { expiresAt: demoExpiresAt(workspaceId) } : {}),
+      },
     }),
   );
 

@@ -10,6 +10,7 @@ import {
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../lib/aws.ts';
 import { logger, tracer } from '../lib/observability.ts';
+import { readMrz, type Mrz } from './mrz.ts';
 import { pdfPageCount } from './pdf.ts';
 import { contractParties, documentCategory, evidenceLine, issuerFromHeader, parseDates, parseValidity, tidyCase } from './parse.ts';
 import type { ExtractedDate, ExtractionResult, Extractor } from './types.ts';
@@ -78,11 +79,45 @@ function answers(blocks: Block[]): Partial<Record<Alias, Answer>> {
 
 const same = (a?: string, b?: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
+/**
+ * A passport or ID card. The expiry comes from the MRZ. The evidence quotes the printed expiry line
+ * when Textract found the same date, never the MRZ itself (it holds date of birth and document number).
+ */
+function fromMrz(mrz: Mrz, a: Partial<Record<Alias, Answer>>, quote: (ans: Answer) => string): ExtractionResult {
+  const passport = mrz.kind === 'passport';
+  const dates: ExtractedDate[] = [];
+
+  const issue = a.ISSUE ? parseDates(a.ISSUE.text)[0] : undefined;
+  if (issue && issue < mrz.expiryDate) dates.push({ label: 'issue', isoDate: issue, evidence: quote(a.ISSUE!), confidence: a.ISSUE!.confidence });
+
+  const printed = [a.EXPIRY, a.VALID_UNTIL].find((ans) => ans && parseDates(ans.text)[0] === mrz.expiryDate);
+  dates.push({
+    label: 'expiry',
+    isoDate: mrz.expiryDate,
+    evidence: printed ? quote(printed) : 'Machine-readable zone: expiry date, check digit valid',
+    confidence: 0.99,
+  });
+
+  return {
+    documentType: passport ? 'Passport' : 'Identity card',
+    title: passport ? 'International Passport' : 'Identity Card',
+    issuer: mrz.issuingState,
+    parties: mrz.holder ? [mrz.holder] : [],
+    dates,
+    validityPeriod: null,
+    notes: null,
+  };
+}
+
 /** Maps raw Textract blocks to our extraction schema. Pure, so it's tested on real responses. */
 export function fromBlocks(blocks: Block[], filename: string): ExtractionResult {
   const a = answers(blocks);
   const lines = blocks.filter((b) => b.BlockType === 'LINE' && b.Text).map((b) => b.Text!);
   const quote = (ans: Answer) => evidenceLine(lines, ans.text);
+
+  // Passports and ID cards: the machine-readable zone is definitive when its check digits pass.
+  const mrz = readMrz(lines);
+  if (mrz) return fromMrz(mrz, a, quote);
 
   // Title: the short "type" answer usually is the title; the "title" answer sometimes drags in the letterhead.
   const titleSource = [a.TYPE, a.TITLE].find((x) => x && x.text.length <= 70) ?? a.TITLE ?? a.TYPE;

@@ -435,6 +435,19 @@
   background: #fff1a8;
 }
 
+.l-cta-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 20px;
+}
+
+.l-cta-link {
+  color: #fffcf6;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
 /* ==========================================================================
    Responsive
    ========================================================================== */
@@ -466,8 +479,17 @@
 }
 
 @media (max-width: 600px) {
-  .nav-links a:not(.button) {
+  /* Section links go; Sign in and Get started stay. */
+  .nav-links a[href^='#'] {
     display: none;
+  }
+
+  .nav-links {
+    gap: 16px;
+  }
+
+  .l-cta-actions {
+    flex-wrap: wrap;
   }
 
   .l-cols,

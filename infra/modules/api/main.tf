@@ -39,6 +39,25 @@ locals {
       environment = { TABLE_NAME = var.table_name }
       statements  = [{ actions = ["dynamodb:GetItem"], resources = [var.table_arn] }]
     }
+    document-file = {
+      route_key   = "GET /api/documents/{id}/file"
+      memory_size = 256
+      environment = { TABLE_NAME = var.table_name, UPLOAD_BUCKET = var.uploads_bucket_name }
+      statements = [
+        { actions = ["dynamodb:GetItem"], resources = [var.table_arn] },
+        { actions = ["s3:GetObject"], resources = ["${var.uploads_bucket_arn}/ws/*"] }, # signs the view link
+      ]
+    }
+    delete-document = {
+      route_key   = "DELETE /api/documents/{id}"
+      memory_size = 256
+      environment = merge(local.scheduling_env, { UPLOAD_BUCKET = var.uploads_bucket_name })
+      statements = [
+        { actions = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:DeleteItem"], resources = [var.table_arn] },
+        { actions = ["s3:DeleteObject"], resources = ["${var.uploads_bucket_arn}/ws/*"] },
+        { actions = ["scheduler:DeleteSchedule"], resources = [local.schedule_arns] },
+      ]
+    }
     confirm-document = {
       route_key   = "PUT /api/documents/{id}/confirm"
       memory_size = 256
@@ -84,7 +103,33 @@ locals {
         { actions = ["ses:GetEmailIdentity", "ses:CreateEmailIdentity"], resources = [local.ses_identity_arns] },
       ]
     }
+    # Sign up / in / out, refresh, password reset. One function: every action shares the Cognito
+    # client and its secret. SignUp, InitiateAuth etc. are public Cognito APIs (no IAM needed).
+    auth = {
+      route_key   = "ANY /api/auth/{action}"
+      memory_size = 256
+      environment = { TABLE_NAME = var.table_name, CLIENT_SECRET_PARAM = var.client_secret_parameter_name }
+      statements = [
+        { actions = ["ssm:GetParameter"], resources = [var.client_secret_parameter_arn] },
+        { actions = ["dynamodb:PutItem"], resources = [var.table_arn] }, # the user's workspace record
+      ]
+    }
+    claim-demo = {
+      route_key   = "POST /api/workspace/claim-demo"
+      memory_size = 256
+      environment = merge(local.scheduling_env, { UPLOAD_BUCKET = var.uploads_bucket_name })
+      statements = [
+        { actions = ["dynamodb:Query", "dynamodb:PutItem", "dynamodb:DeleteItem"], resources = [var.table_arn] },
+        # CopyObject needs GetObject on the source and PutObject on the destination.
+        { actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"], resources = ["${var.uploads_bucket_arn}/ws/*"] },
+        { actions = ["scheduler:CreateSchedule", "scheduler:DeleteSchedule"], resources = [local.schedule_arns] },
+        { actions = ["iam:PassRole"], resources = [var.scheduler_role_arn] },
+      ]
+    }
   }
+
+  # Every route verifies the session cookie (Cognito ID token) itself; this is all it needs.
+  session_env = { USER_POOL_ID = var.user_pool_id, USER_POOL_CLIENT_ID = var.user_pool_client_id }
 }
 
 data "aws_caller_identity" "current" {}
@@ -109,7 +154,7 @@ module "fn" {
   handler           = each.key
   dist_root         = var.lambda_dist_root
   memory_size       = each.value.memory_size
-  environment       = each.value.environment
+  environment       = merge(local.session_env, each.value.environment)
   policy_statements = each.value.statements
 }
 
@@ -166,9 +211,10 @@ resource "aws_apigatewayv2_route" "this" {
 
 locals {
   # "GET /api/documents/{id}" → "GET/api/documents/*" for the permission's source ARN.
+  # ANY routes are invoked with the real method, so they need a wildcard method.
   route_arn_suffix = {
     for k, r in local.routes :
-    k => "${split(" ", r.route_key)[0]}${replace(split(" ", r.route_key)[1], "/\\{[^}]+\\}/", "*")}"
+    k => "${replace(split(" ", r.route_key)[0], "ANY", "*")}${replace(split(" ", r.route_key)[1], "/\\{[^}]+\\}/", "*")}"
   }
 }
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lapse — never miss a renewal</title>
-    <meta name="description" content="Lapse reads the dates on your licences, contracts, insurance policies and permits, then emails reminders 60, 30 and 7 days before anything expires. Serverless on AWS." />
+    <meta name="description" content="Lapse reads the dates on your licences, contracts, insurance policies and permits, then emails reminders 60, 30 and 7 days before anything expires." />
     <meta name="theme-color" content="#0b6e4f" />
     <meta property="og:title" content="Lapse — never miss a renewal" />
     <meta property="og:description" content="Upload a document. Lapse finds the expiry date and reminds you 60, 30 and 7 days before it lapses." />
@@ -32,8 +32,9 @@
         </a>
         <nav class="nav-links" aria-label="Page sections">
           <a href="#how-it-works">How it works</a>
-          <a href="#architecture">Architecture</a>
-          <a class="button button-sm" href="/app">Try the demo</a>
+          <a href="#security">Security</a>
+          <a href="/signin">Sign in</a>
+          <a class="button button-sm" href="/signup">Get started</a>
         </nav>
       </header>
 
@@ -48,10 +49,10 @@
               anything expires.
             </p>
             <div class="cta-row">
-              <a class="button button-lg" href="/app">Try the demo, no sign-up →</a>
-              <a class="button-ghost" href="#how-it-works">See how it works</a>
+              <a class="button button-lg" href="/signup">Get started →</a>
+              <a class="button-ghost" href="/demo">Try the demo</a>
             </div>
-            <p class="l-note">A private demo workspace in your browser · nothing to install</p>
+            <p class="l-note">The demo needs no account · nothing to install</p>
           </div>
 
           <!-- Illustration: the document Lapse just read, with what it found highlighted. -->
@@ -121,7 +122,7 @@
             <li>
               <span class="step-num">2</span>
               <h3>Lapse reads it</h3>
-              <p>Amazon Textract finds the document type, issuer, parties and every date, along with the exact line each date came from. “Valid for 12 months” becomes an expiry date, calculated in code rather than guessed.</p>
+              <p>Lapse finds the document type, issuer, parties and every date, along with the exact line each date came from. “Valid for 12 months” becomes an exact expiry date, calculated rather than guessed.</p>
             </li>
             <li>
               <span class="step-num">3</span>
@@ -136,40 +137,36 @@
           </ol>
         </section>
 
-        <section class="l-section" id="architecture" aria-labelledby="arch">
+        <section class="l-section" id="security" aria-labelledby="sec">
           <div class="l-section-head">
-            <p class="eyebrow">Architecture</p>
-            <h2 id="arch">Serverless on AWS. Nothing runs while it’s idle.</h2>
+            <p class="eyebrow">Security</p>
+            <h2 id="sec">Your documents are safe with us.</h2>
             <p class="l-intro">
-              Every component is pay-per-use, defined in Terraform and deployed to
-              <code>us-east-1</code>. Each Lambda function has its own least-privilege IAM role.
+              Licences, policies and contracts are sensitive. Lapse is built to keep them private, and to
+              be clear about where they are.
             </p>
           </div>
-          <pre class="flow" aria-label="Request flow">Browser ─► API Gateway (HTTP API) ─► Lambda ─► DynamoDB
-Browser ─► S3 (presigned upload) ─► SQS ─► Lambda ─► Textract ─► DynamoDB
-EventBridge Scheduler ─► Lambda ─► SES email + in-app feed</pre>
           <dl class="services">
-            <div><dt>Amazon API Gateway + AWS Lambda</dt><dd>HTTP API with one Node.js 22 function per route on Graviton (arm64).</dd></div>
-            <div><dt>Amazon S3 + SQS</dt><dd>Private document storage. Browsers upload directly with presigned URLs; each upload is queued for extraction, two at a time, with a dead-letter queue.</dd></div>
-            <div><dt>Amazon Textract</dt><dd>AnalyzeDocument Queries ask each document for its type, issuer, holder and dates. Every answer has a confidence score and a quote of the line it came from. DD/MM dates and phrases like “valid for twelve months” are interpreted in code, not by a model.</dd></div>
-            <div><dt>Amazon DynamoDB</dt><dd>Single-table design with on-demand capacity and point-in-time recovery.</dd></div>
-            <div><dt>Amazon EventBridge Scheduler</dt><dd>One-time schedules for each reminder, deleted automatically after they fire.</dd></div>
-            <div><dt>Amazon SES</dt><dd>Reminder emails with bounce and complaint suppression, also recorded to an in-app notification feed.</dd></div>
-            <div><dt>Amazon CloudWatch + AWS X-Ray</dt><dd>Structured logs, traces and custom metrics through Powertools for AWS Lambda, with a dashboard and alarms.</dd></div>
-            <div><dt>Terraform</dt><dd>All infrastructure as code. State is kept in S3 with native locking.</dd></div>
+            <div><dt>Private to your account</dt><dd>Only you can see your documents. Every request is checked against your signed-in account.</dd></div>
+            <div><dt>Encrypted, always</dt><dd>Documents are stored encrypted, and every connection to Lapse is encrypted too.</dd></div>
+            <div><dt>Nothing happens without you</dt><dd>No reminder is scheduled until you’ve checked the details. Reminders go only to the address you choose.</dd></div>
+            <div><dt>Where your data lives</dt><dd>Lapse runs on Amazon Web Services. Your documents are stored in AWS’s US East region.</dd></div>
           </dl>
         </section>
 
         <section class="l-cta">
           <div>
-            <h2>See it with your own documents.</h2>
-            <p>Upload a permit, certificate or policy, or load our samples, and watch Lapse find the dates.</p>
+            <h2>Stop chasing renewal dates.</h2>
+            <p>Upload a permit, certificate or policy and Lapse finds the dates. Or try the demo first, with sample documents.</p>
           </div>
-          <a class="button button-lg button-invert" href="/app">Try the demo →</a>
+          <div class="l-cta-actions">
+            <a class="button button-lg button-invert" href="/signup">Get started →</a>
+            <a class="l-cta-link" href="/demo">Try the demo</a>
+          </div>
         </section>
       </main>
 
-      <footer class="footer">Lapse · built for the AWS Zero to Shipped hackathon</footer>
+      <footer class="footer">Lapse · Reck Tech Ltd</footer>
     </div>
   </body>
 </html>

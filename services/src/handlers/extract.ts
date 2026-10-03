@@ -24,15 +24,21 @@ function isRetryable(err: unknown): boolean {
 
 type Key = { PK: string; SK: string };
 
-/** Sets fields on an existing document. Returns false if the document doesn't exist. */
-async function updateDocument(key: Key, fields: Record<string, unknown>, remove: string[] = []): Promise<boolean> {
+/** Sets fields on an existing document. Returns false if it doesn't exist (or fails `condition`). */
+async function updateDocument(
+  key: Key,
+  fields: Record<string, unknown>,
+  remove: string[] = [],
+  condition?: { expression: string; names: Record<string, string>; values: Record<string, unknown> },
+): Promise<boolean> {
   const entries = Object.entries(fields);
   const set = entries.map((_, i) => `#f${i} = :v${i}`).join(', ');
   const names = Object.fromEntries([
     ...entries.map(([name], i) => [`#f${i}`, name]),
     ...remove.map((name, i) => [`#r${i}`, name]),
+    ...Object.entries(condition?.names ?? {}),
   ]);
-  const values = Object.fromEntries(entries.map(([, value], i) => [`:v${i}`, value]));
+  const values = { ...Object.fromEntries(entries.map(([, value], i) => [`:v${i}`, value])), ...condition?.values };
   const removeClause = remove.length ? ` REMOVE ${remove.map((_, i) => `#r${i}`).join(', ')}` : '';
 
   try {
@@ -41,7 +47,7 @@ async function updateDocument(key: Key, fields: Record<string, unknown>, remove:
         TableName: TABLE_NAME,
         Key: key,
         UpdateExpression: `SET ${set}${removeClause}`,
-        ConditionExpression: 'attribute_exists(PK)',
+        ConditionExpression: `attribute_exists(PK)${condition ? ` AND (${condition.expression})` : ''}`,
         ExpressionAttributeNames: names,
         ExpressionAttributeValues: values,
       }),
@@ -72,9 +78,15 @@ async function processRecord(record: S3EventRecord, attempt: number): Promise<vo
       throw new Error(`File is ${record.s3.object.size} bytes; the limit is ${MAX_UPLOAD_BYTES}`);
     }
 
-    const exists = await updateDocument(key, { status: 'PROCESSING', updatedAt: new Date().toISOString() });
-    if (!exists) {
-      logger.warn('no document record for uploaded object', { s3Key });
+    // Only fresh uploads (or a retry of one) are extracted. A copied object (demo documents moved
+    // into an account) or a duplicate S3 event must not overwrite a reviewed document.
+    const fresh = await updateDocument(key, { status: 'PROCESSING', updatedAt: new Date().toISOString() }, [], {
+      expression: '#s IN (:uploading, :processing)',
+      names: { '#s': 'status' },
+      values: { ':uploading': 'UPLOADING', ':processing': 'PROCESSING' },
+    });
+    if (!fresh) {
+      logger.info('skipping object: no document record, or the document is already extracted', { s3Key });
       return;
     }
 

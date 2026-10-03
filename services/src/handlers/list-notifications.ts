@@ -1,13 +1,14 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, requireEnv } from '../lib/aws.ts';
 import { NOTIFICATION_SK_PREFIX, workspacePk, type NotificationRecord } from '../lib/documents.ts';
-import { apiHandler, getWorkspaceId, json } from '../lib/http.ts';
+import { apiHandler, json } from '../lib/http.ts';
+import { getCaller } from '../lib/session.ts';
 
 const TABLE_NAME = requireEnv('TABLE_NAME');
 
 /** GET /api/notifications → the in-app reminder feed, newest first. */
 export const handler = apiHandler(async (event) => {
-  const workspaceId = getWorkspaceId(event);
+  const { workspaceId } = await getCaller(event);
 
   const { Items = [] } = await ddb.send(
     new QueryCommand({
